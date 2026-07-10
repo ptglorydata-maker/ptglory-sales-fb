@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<!-- GitHub Pages version: ไม่ใช้ google.script.run แล้ว ใช้ fetch() แทน -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{--ink:#492E18;--ink-2:#3A2412;--page:#F5EFEA;--card:#fff;--jade:#D34B82;--jade-deep:#B23A6C;
+    --jade-soft:#FAE8F0;--coral-soft:#FBE3DC;--amber:#A4673F;--amber-soft:#F3E7DD;
+    --muted:#7A6A60;--faint:#A89A90;--line:#EBE3DD;--lastyear:#CBB3A6;
+    --pink:#D34B82;--brown:#492E18;--brown-deep:#3A2412;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--page);color:var(--ink);
+    -webkit-font-smoothing:antialiased;line-height:1.5;display:flex;min-height:100vh}
+  .num{font-variant-numeric:tabular-nums}
+  h1,h2,h3{font-family:'Anuphan',sans-serif}
+  .side{width:230px;flex-shrink:0;background:linear-gradient(180deg,#56391F 0%,#492E18 100%);color:#E9D8CE;display:flex;flex-direction:column;
+    padding:22px 16px;gap:5px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px}
+  .logo{width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(73,46,24,.35);overflow:hidden}
+  .logo img{width:30px;height:30px;object-fit:contain;display:block}
+  .brand b{font-family:'Anuphan';font-weight:600;color:#fff;font-size:15px}
+  .brand span{display:block;font-size:11px;color:#CDB0A4}
+  .nav{font-size:14px;color:#D8C3B8;padding:9px 12px;border-radius:9px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s,color .15s}
+  .nav:hover{background:rgba(255,255,255,.06);color:#fff}
+  .nav.on{background:var(--jade);color:#fff;font-weight:600;box-shadow:0 2px 10px rgba(211,75,130,.4)}
+  .nav svg{width:18px;height:18px}
+  .pickwrap{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
+  .side label{font-size:11px;color:#C7AA9D;display:block;margin-bottom:6px}
+  .side select,.side input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
+    color:#fff;padding:8px 10px;border-radius:8px;font-family:'IBM Plex Sans Thai';font-size:13px;margin-bottom:10px}
+  .side input::-webkit-calendar-picker-indicator{filter:invert(1)}
+  .foot{margin-top:auto;font-size:11px;color:#A78C81;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
+  .main{flex:1;min-width:0;padding:24px 28px 50px;position:relative}
+  .top{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+  .top h1{font-size:23px;font-weight:600}.top .sub{font-size:13px;color:var(--muted);margin-top:2px}
+  .pill{font-size:13px;background:var(--jade-soft);color:var(--jade-deep);padding:8px 13px;border-radius:10px;display:inline-flex;align-items:center;gap:7px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--jade)}
+  .btn{font-size:13px;border:none;padding:9px 15px;border-radius:10px;cursor:pointer;font-family:'IBM Plex Sans Thai'}
+  .grid{display:grid;gap:15px}
+  .row-hero{grid-template-columns:1.3fr 1fr 1.15fr;margin-bottom:15px}
+  @media(max-width:1000px){.row-hero{grid-template-columns:1fr 1fr}}
+  @media(max-width:680px){.side{display:none}.row-hero{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;box-shadow:0 1px 2px rgba(110,74,51,.04)}
+  .card .lbl{font-size:13px;color:var(--muted)}
+  .card .big{font-family:'Anuphan';font-weight:600;font-size:36px;margin-top:6px;line-height:1.05}
+  .card .big.sm{font-size:28px}
+  .delta{display:inline-flex;align-items:center;gap:3px;font-size:12.5px;font-weight:500;padding:3px 9px;border-radius:20px;margin-top:8px}
+  .up{color:var(--jade-deep);background:var(--jade-soft)}.down{color:#B4452F;background:var(--coral-soft)}
+  .warn{color:#8A5A2A;background:var(--amber-soft)}
+  .vs{font-size:12px;color:var(--faint);margin-left:6px}
+  .hero{background:linear-gradient(135deg,#56391F 0%,#492E18 55%,#7A2E51 100%);color:#fff;border:none;box-shadow:0 10px 30px rgba(59,42,36,.22)}.hero .lbl{color:#E8C9BD}.hero .big{color:#fff;font-size:42px}
+  .hero .delta.up{color:#5A1030;background:#F6A9C6}
+  .tgt .bar{height:10px;background:#F3E8E2;border-radius:20px;margin-top:14px;overflow:hidden}
+  .tgt .fill{height:100%;background:linear-gradient(90deg,var(--jade),var(--jade-deep));border-radius:20px;width:0;transition:width .5s}
+  .tgt .meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:8px}
+  .row-kpi{grid-template-columns:repeat(5,1fr);margin-bottom:18px}
+  @media(max-width:1000px){.row-kpi{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.row-kpi{grid-template-columns:repeat(2,1fr)}}
+  .row-kpi.k6{grid-template-columns:repeat(6,1fr)}
+  @media(max-width:1200px){.row-kpi.k6{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.row-kpi.k6{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;width:100%;height:3px;background:linear-gradient(90deg,var(--jade),var(--brown))}
+  .kpi .lbl{font-size:12.5px;color:var(--muted)}.kpi .big{font-family:'Anuphan';font-weight:600;font-size:22px;margin-top:3px}
+  .kpi .sub{font-size:11.5px;color:var(--faint);margin-top:3px}
+  .row-charts{grid-template-columns:1.55fr 1fr;margin-bottom:18px}
+  @media(max-width:900px){.row-charts{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(110,74,51,.04)}
+  .panel h3{font-size:16px;font-weight:600;margin-bottom:2px}.panel .ph{font-size:12.5px;color:var(--faint);margin-bottom:12px}
+  .legend{display:flex;gap:15px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  .legend i.dash{width:16px;height:0;border-top:2px dashed var(--lastyear);border-radius:0}
+  .legend i.dot2{width:14px;border-top:2px dotted var(--amber);height:0;border-radius:0}
+  .cw{position:relative;width:100%}
+  .row-bottom{grid-template-columns:1fr 1.4fr}
+  @media(max-width:900px){.row-bottom{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{text-align:right;font-weight:500;color:var(--faint);font-size:11.5px;padding:0 0 10px;border-bottom:1px solid var(--line)}
+  thead th:first-child{text-align:left}
+  tbody td{padding:9px 0;border-bottom:1px solid var(--line);text-align:right;color:var(--ink-2)}
+  tbody td:first-child{text-align:left;font-weight:500}tbody tr:last-child td{border-bottom:none}
+  .grid td .tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+  .tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+  .tag.g{color:var(--jade-deep);background:var(--jade-soft)}.tag.r{color:#B4452F;background:var(--coral-soft)}.tag.a{color:#8A5A2A;background:var(--amber-soft)}
+  #loading{position:absolute;inset:0;background:rgba(251,243,239,.75);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted);z-index:5}
+  .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--jade);border-radius:50%;animation:s .7s linear infinite;margin-right:8px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  #err{display:none;background:var(--coral-soft);color:#B4452F;padding:14px 18px;border-radius:12px;margin-bottom:16px;font-size:14px}
+  .hide{display:none}
+  .inslist{display:grid;gap:10px}
+  .insrow{display:flex;gap:11px;align-items:flex-start;font-size:13.5px;color:var(--ink-2);background:var(--page);border:1px solid var(--line);border-radius:12px;padding:11px 13px;line-height:1.5}
+  .insrow .ic{flex-shrink:0;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;margin-top:1px}
+  .insrow b{color:var(--ink);font-weight:600}
+  .insrow.good .ic{background:var(--jade-soft);color:var(--jade-deep)}
+  .insrow.warni .ic{background:var(--amber-soft);color:#8A5A2A}
+  .insrow.bad .ic{background:var(--coral-soft);color:#B4452F}
+  .insrow.info .ic{background:var(--brown-soft);color:var(--brown)}
+  .panel.insight h3::before{content:"🔎 ";}
+  .chrow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px}
+  .chu{width:130px;flex-shrink:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chbar{flex:1;height:14px;background:#F3E8E2;border-radius:20px;overflow:hidden}
+  .chfill{height:100%;border-radius:20px;transition:width .5s}
+  .chfill.good{background:linear-gradient(90deg,var(--jade),var(--jade-deep))}
+  .chfill.warni{background:var(--amber)}
+  .chfill.bad{background:#D08C7A}
+  .chval{width:42px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+  td .tag.r{white-space:nowrap}
+</style>
+</head>
+<body>
+  <aside class="side">
+    <div class="brand"><div class="logo"><img src="data:image/png;base64,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" alt="PT GLORY"></div><div><b>PT GLORY</b><span>FB ยอดขายรายวัน 2569</span></div></div>
+    <div class="nav on" id="navDaily" onclick="switchView('daily')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>ภาพรวมรายวัน</div>
+    <div class="nav" id="navMonthly" onclick="switchView('monthly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/></svg>ภาพรวมรายเดือน</div>
+    <div class="nav" id="navYearly" onclick="switchView('yearly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="6" y="10" width="3" height="8"/><rect x="11" y="6" width="3" height="12"/><rect x="16" y="13" width="3" height="5"/></svg>ภาพรวมรายปี</div>
+    <div class="nav" id="navRange" onclick="switchView('range')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M8 14h3M8 17h6"/></svg>ตามช่วงเวลา</div>
+    <div class="pickwrap">
+      <div id="ctrlDaily"><label>เลือกวันที่</label><input type="date" id="datePick"></div>
+      <div id="ctrlMonthly" class="hide">
+        <label>เลือกเดือน</label>
+        <select id="monthPick" style="background-color: white; color: #333333;"></select>
+    </div>
+      <div id="ctrlRange" class="hide">
+        <label>เลือกช่วงเวลา</label>
+        <select id="rangePick" style="background-color:white;color:#333333">
+          <option value="today">วันนี้</option>
+          <option value="yesterday">เมื่อวาน</option>
+          <option value="today_yesterday">วันนี้และเมื่อวาน</option>
+          <option value="7d" selected>7 วันที่ผ่านมา</option>
+          <option value="14d">14 วันที่ผ่านมา</option>
+          <option value="30d">30 วันที่ผ่านมา</option>
+          <option value="this_month">เดือนนี้</option>
+          <option value="last_month">เดือนที่แล้ว</option>
+          <option value="custom">กำหนดเอง…</option>
+        </select>
+        <div id="customRange" class="hide">
+          <label>ตั้งแต่</label><input type="date" id="rangeStart">
+          <label>ถึง</label><input type="date" id="rangeEnd">
+        </div>
+      </div>
+
+      <label id="unitLabel" style="display:none">หน่วย (Unit)</label>
+      <select id="unitPick" style="display:none; background-color: white; color: #333333;"></select>
+      <button class="btn" id="refreshBtn" style="display:none; background-color: white; color: #333333">รีเฟรชข้อมูล</button>
+    </div>
+    <div class="foot" id="footUpdated">กำลังโหลด…</div>
+  </aside>
+  <main class="main">
+    <div id="loading"><span class="spin"></span> กำลังโหลดข้อมูล…</div>
+    <div class="top">
+      <div><h1 id="pageTitle">รายงานยอดขายรายวัน</h1><div class="sub" id="subDate">—</div><span id="unitBadge" class="tag a" style="display:none;margin-top:8px">🧪 กำลังดูหน่วยทดลอง (test) — ยังไม่ใช่ยอดขายจริง</span></div>
+      <span class="pill"><span class="dot"></span> อัปเดต <span id="updated">—</span></span>
+    </div>
+    <div id="err"></div>
+
+    <section id="viewDaily">
+      <div class="grid row-hero">
+        <div class="card hero"><div class="lbl">ยอดขายวันนี้ (ยอดรวม)</div><div class="big num" id="kSales">—</div><div id="kSalesMeta"></div></div>
+        <div class="card"><div class="lbl">กำไรวันนี้</div><div class="big sm num" id="kProfit">—</div><div id="kProfitMeta"></div></div>
+        <div class="card tgt"><div class="lbl">ยอดสะสมเดือนนี้ เทียบเป้า/เดือน</div><div class="big sm num" id="kMtd">—</div>
+          <div class="bar"><div class="fill" id="mtdFill"></div></div><div class="meta" id="mtdMeta"></div></div>
+      </div>
+      <div class="panel insight" style="margin:0 0 18px"><h3>Insight อัตโนมัติ</h3><div class="ph">วิเคราะห์อัตโนมัติจากข้อมูลวันที่เลือก</div>
+        <div id="insDaily" class="inslist"></div></div>
+      <div class="panel" style="margin:0 0 18px"><h3>ยอดขายเทียบเป้า · แยกราย Unit</h3><div class="ph">วันที่เลือก — เทียบยอดจริงกับเป้าของแต่ละยูนิต</div>
+        <div class="legend"><span><i style="background:var(--jade)"></i>ยอดขาย</span><span><i style="background:var(--brown)"></i>เป้า/วัน</span></div>
+        <div class="cw" style="height:240px"><canvas id="uUnit"></canvas></div></div>
+      <div class="grid row-kpi k6">
+        <div class="kpi"><div class="lbl">ค่า Ads วันนี้</div><div class="big num" id="kAd">—</div><div class="sub" id="kAdSub"></div></div>
+        <div class="kpi"><div class="lbl">ROAS รวม</div><div class="big num" id="kRoas">—</div><div class="sub" id="kRoasSub"></div></div>
+        <div class="kpi"><div class="lbl">ROAS ใหม่</div><div class="big num" id="kRoasNew">—</div><div class="sub" id="kRoasNewSub"></div></div>
+        <div class="kpi"><div class="lbl">%ปิดการขาย</div><div class="big num" id="kClose">—</div><div class="sub" id="kCloseSub"></div></div>
+        <div class="kpi"><div class="lbl">เปอร์บิล</div><div class="big num" id="kAov">—</div><div class="sub" id="kAovSub"></div></div>
+        <div class="kpi"><div class="lbl">ต้นทุนทัก</div><div class="big num" id="kCost">—</div><div class="sub" id="kCostSub"></div></div>
+      </div>
+      <div class="grid row-charts">
+        <div class="panel" style="margin:0"><h3>ยอดรวมรายวัน · เป้า · ปีที่แล้ว</h3><div class="ph">14 วันล่าสุด</div>
+          <div class="legend"><span><i style="background:var(--jade)"></i><span id="lgThis">ปีนี้</span></span><span><i class="dot2"></i>เป้า/วัน</span><span><i class="dash"></i><span id="lgLast">ปีก่อน</span></span></div>
+          <div class="cw" style="height:250px"><canvas id="yoy"></canvas></div></div>
+        <div class="panel" style="margin:0"><h3>ลูกค้าใหม่ vs เก่า</h3><div class="ph">วันที่เลือก</div>
+          <div class="cw" style="height:200px;max-width:230px;margin:8px auto 0"><canvas id="donut"></canvas></div>
+          <div class="legend" id="noLegend" style="justify-content:center;margin-top:14px"></div></div>
+      </div>
+      <div class="grid row-bottom">
+        <div class="panel" style="margin:0"><h3>กำไร vs ค่า Ads</h3><div class="ph">7 วันล่าสุด</div>
+          <div class="legend"><span><i style="background:var(--jade)"></i>กำไร</span><span><i style="background:var(--amber)"></i>ค่า Ads</span></div>
+          <div class="cw" style="height:230px"><canvas id="pa"></canvas></div></div>
+        <div class="panel" style="margin:0"><h3>สรุปยอดรายวัน (7 วันล่าสุด)</h3><div class="ph">เทียบเป้า/วัน และยอดวันเดียวกันปีก่อน</div>
+          <table><thead><tr><th>วันที่</th><th>ยอดรวม</th><th>เป้า/วัน</th><th>%เป้า</th><th>กำไร</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>YoY</th></tr></thead><tbody id="tbody"></tbody></table></div>
+      </div>
+      <div class="panel" style="margin:18px 0 0"><h3>กำไร & ROAS คุ้มทุน · รายยูนิต</h3><div class="ph">วันที่เลือก — "ROAS คุ้มทุน" = ต้องทำ ROAS เกินค่านี้ถึงจะมีกำไร (คำนวณจากกำไรสุทธิหลังหักค่าแอด)</div>
+        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="uFinBody"></tbody></table></div>
+      <div class="panel" style="margin:18px 0 0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">วันที่เลือก — ยิ่งสูง = ฐานลูกค้าซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ/ต้นทุนหาลูกค้าสูง)</div>
+        <div id="uCustHealth" style="margin-top:8px"></div></div>
+    </section>
+
+    <section id="viewMonthly" class="hide">
+      <div class="grid row-hero">
+        <div class="card hero"><div class="lbl">ยอดขายเดือนนี้ (รวม)</div><div class="big num" id="mSales">—</div><div id="mSalesMeta"></div></div>
+        <div class="card"><div class="lbl">กำไรเดือนนี้</div><div class="big sm num" id="mProfit">—</div><div id="mProfitMeta"></div></div>
+        <div class="card tgt"><div class="lbl">ยอดสะสมทั้งปี (YTD) เทียบเป้าสะสม</div><div class="big sm num" id="mYtd">—</div>
+          <div class="bar"><div class="fill" id="ytdFill"></div></div><div class="meta" id="ytdMeta"></div></div>
+      </div>
+      <div class="panel insight" style="margin:0 0 18px"><h3>Insight อัตโนมัติ</h3><div class="ph">วิเคราะห์อัตโนมัติจากข้อมูลเดือนที่เลือก</div>
+        <div id="insMonthly" class="inslist"></div></div>
+      <div class="panel" style="margin:0 0 18px"><h3>ยอดขายเทียบเป้า · แยกราย Unit</h3><div class="ph">เดือนที่เลือก — เทียบยอดจริงกับเป้าของแต่ละยูนิต</div>
+        <div class="legend"><span><i style="background:var(--jade)"></i>ยอดขาย</span><span><i style="background:var(--brown)"></i>เป้า/เดือน</span></div>
+        <div class="cw" style="height:240px"><canvas id="mUnit"></canvas></div></div>
+      <div class="grid row-kpi">
+        <div class="kpi"><div class="lbl">ค่า Ads เดือนนี้</div><div class="big num" id="mAd">—</div><div class="sub" id="mAdSub"></div></div>
+        <div class="kpi"><div class="lbl">ROAS รวม</div><div class="big num" id="mRoas">—</div><div class="sub">ยอด ÷ ค่าแอด</div></div>
+        <div class="kpi"><div class="lbl">%ปิด เฉลี่ย</div><div class="big num" id="mClose">—</div><div class="sub"></div></div>
+        <div class="kpi"><div class="lbl">เปอร์บิล เฉลี่ย</div><div class="big num" id="mAov">—</div><div class="sub" id="mAovSub"></div></div>
+        <div class="kpi"><div class="lbl">margin เดือนนี้</div><div class="big num" id="mMargin">—</div><div class="sub" id="mMarginSub"></div></div>
+      </div>
+      <div class="panel"><h3>ยอดขายรายเดือน · ปีนี้เทียบปีที่แล้ว</h3><div class="ph">ทั้งปี — แท่ง = ยอดจริง, เส้นจุด = เป้า/เดือน</div>
+        <div class="legend"><span><i style="background:var(--jade)"></i><span id="mLgThis">ปีนี้</span></span><span><i style="background:var(--lastyear)"></i><span id="mLgLast">ปีก่อน</span></span><span><i class="dot2"></i>เป้า/เดือน</span></div>
+        <div class="cw" style="height:300px"><canvas id="mBar"></canvas></div></div>
+      <div class="grid row-charts">
+        <div class="panel" style="margin:0"><h3>ยอดสะสม เทียบเป้าสะสม</h3><div class="ph">จังหวะวิ่งเข้าเป้า (pacing)</div>
+          <div class="legend"><span><i style="background:var(--jade)"></i>สะสมปีนี้</span><span><i class="dot2"></i>เป้าสะสม</span><span><i class="dash"></i>สะสมปีก่อน</span></div>
+          <div class="cw" style="height:260px"><canvas id="mCum"></canvas></div></div>
+        <div class="panel" style="margin:0"><h3>กำไร vs ค่า Ads รายเดือน</h3><div class="ph">ทั้งปี</div>
+          <div class="legend"><span><i style="background:var(--jade)"></i>กำไร</span><span><i style="background:var(--amber)"></i>ค่า Ads</span></div>
+          <div class="cw" style="height:260px"><canvas id="mPa"></canvas></div></div>
+      </div>
+      <div class="panel" style="margin:0"><h3>สรุปยอดรายเดือน</h3><div class="ph">เทียบเป้า/เดือน และปีก่อน</div>
+        <table><thead><tr><th>เดือน</th><th>ยอดรวม</th><th>เป้า/เดือน</th><th>%เป้า</th><th>กำไร</th><th>margin</th><th>ค่า Ads</th><th>ROAS</th><th>YoY</th></tr></thead><tbody id="mTbody"></tbody></table></div>
+      <div class="panel" style="margin:18px 0 0"><h3>กำไร & ROAS คุ้มทุน · รายยูนิต</h3><div class="ph">เดือนที่เลือก — "ROAS คุ้มทุน" = ต้องทำ ROAS เกินค่านี้ถึงจะมีกำไร (คำนวณจากกำไรสุทธิหลังหักค่าแอด)</div>
+        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="mFinBody"></tbody></table></div>
+      <div class="panel" style="margin:18px 0 0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">เดือนที่เลือก — ยิ่งสูง = ฐานลูกค้าซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ/ต้นทุนหาลูกค้าสูง)</div>
+        <div id="mCustHealth" style="margin-top:8px"></div></div>
+      <div class="panel" id="mUnitDetailWrap" style="margin:18px 0 0;display:none"><h3>รายเดือนทั้งปี · <span id="mUnitDetailName"></span></h3><div class="ph">ตัวชี้วัดครบทุกเดือนของ Unit ที่เลือก (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+        <div style="overflow-x:auto"><table style="min-width:1180px"><thead><tr>
+          <th>เดือน</th><th>ยอดขาย</th><th>ออเดอร์</th><th>ออเดอร์ลูกค้าใหม่</th><th>ออเดอร์ลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>ค่า ADS</th><th>%ค่าแอด</th><th>กำไร</th><th>%กำไร</th><th>ต้นทุนลูกค้าใหม่</th><th>เปอร์บิล</th><th>ต้นทุนทัก</th><th>ROAS รวม</th><th>%ปิดใหม่</th>
+        </tr></thead><tbody id="mMonthFull"></tbody></table></div></div>
+    </section>
+
+    <section id="viewYearly" class="hide">
+      <div class="panel" style="margin:0 0 18px"><h3>ภาพรวมรายปี · ทุก Unit</h3><div class="ph">สรุปทั้งปี <span id="yYearLabel"></span> ต่อ 1 Unit — ค่าที่มีเกณฑ์ทำสีอัตโนมัติ (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+        <div style="overflow-x:auto"><table style="min-width:1180px"><thead><tr>
+          <th>Unit</th><th>ยอดขายรวม</th><th>ออเดอร์</th><th>ออเดอร์ลูกค้าใหม่</th><th>ออเดอร์ลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>ค่า ADS</th><th>%ค่าแอด</th><th>กำไร</th><th>%กำไร</th><th>ต้นทุนลูกค้าใหม่</th><th>เปอร์บิล</th><th>ต้นทุนทัก</th><th>ROAS รวม</th><th>%ปิดใหม่</th>
+        </tr></thead><tbody id="yUnitFull"></tbody></table></div></div>
+      <div id="yUnitWrap" style="display:none">
+        <div class="panel" style="margin:0 0 18px"><h3>แนวโน้มรายเดือน · <span id="yUnitName"></span></h3><div class="ph">ยอดขาย (แท่ง) · กำไร (เส้น) · ค่า Ads (เส้น) ตลอดทั้งปี</div>
+          <div class="legend"><span><i style="background:var(--jade)"></i>ยอดขาย</span><span><i style="background:var(--jade-deep);border-radius:50%"></i>กำไร</span><span><i class="dot2"></i>ค่า Ads</span></div>
+          <div class="cw" style="height:280px"><canvas id="yChart"></canvas></div></div>
+        <div class="panel" style="margin:0"><h3>ตารางรายเดือนทั้งปี · <span id="yUnitName2"></span></h3><div class="ph">ตัวชี้วัดครบทุกเดือน — ค่าที่มีเกณฑ์ทำสีอัตโนมัติ (เลื่อนซ้าย-ขวา)</div>
+          <div style="overflow-x:auto"><table style="min-width:1180px"><thead><tr>
+            <th>เดือน</th><th>ยอดขาย</th><th>ออเดอร์</th><th>ออเดอร์ลูกค้าใหม่</th><th>ออเดอร์ลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>ค่า ADS</th><th>%ค่าแอด</th><th>กำไร</th><th>%กำไร</th><th>ต้นทุนลูกค้าใหม่</th><th>เปอร์บิล</th><th>ต้นทุนทัก</th><th>ROAS รวม</th><th>%ปิดใหม่</th>
+          </tr></thead><tbody id="yMonthFull"></tbody></table></div></div>
+      </div>
+      <div id="yHint" class="panel" style="margin:0;display:none;color:var(--muted)">เลือก Unit จากเมนูด้านซ้ายเพื่อดูกราฟและตารางรายเดือนทั้งปีของ Unit นั้น</div>
+    </section>
+
+    <section id="viewRange" class="hide">
+      <div class="grid row-hero">
+        <div class="card hero"><div class="lbl">ยอดขายรวมช่วงนี้</div><div class="big num" id="rSales">—</div><div id="rSalesMeta"></div></div>
+        <div class="card"><div class="lbl">กำไรสุทธิช่วงนี้</div><div class="big sm num" id="rProfit">—</div><div id="rProfitMeta"></div></div>
+        <div class="card"><div class="lbl">ค่า Ads / %ค่าแอด</div><div class="big sm num" id="rAd">—</div><div id="rAdMeta"></div></div>
+      </div>
+      <div class="panel insight" style="margin:0 0 18px"><h3>Insight อัตโนมัติ</h3><div class="ph">วิเคราะห์อัตโนมัติจากช่วงเวลาที่เลือก</div>
+        <div id="insRange" class="inslist"></div></div>
+      <div class="panel" style="margin:0 0 18px"><h3>สถิติรวมของช่วง</h3><div class="ph" id="rStatPh">ทุกค่าคือผลรวม/เฉลี่ยของช่วงที่เลือก</div>
+        <div class="grid" id="rStats" style="grid-template-columns:repeat(4,1fr);gap:13px"></div></div>
+      <div class="panel" style="margin:0 0 18px"><h3>ยอดขายเทียบเป้า · รายวันในช่วง</h3><div class="ph">แท่ง = ยอดจริง, เส้นจุด = เป้า/วันรวม</div>
+        <div class="legend"><span><i style="background:var(--jade)"></i>ยอดขาย</span><span><i class="dot2"></i>เป้า</span></div>
+        <div class="cw" style="height:240px"><canvas id="rTrend"></canvas></div></div>
+      <div class="panel" style="margin:0 0 18px"><h3>สรุปรายยูนิต · ครบทุกตัวชี้วัด</h3><div class="ph">อ้างอิงหัวข้อจากชีต "สรุปปี 69" — ค่าที่มีเกณฑ์จะทำสีอัตโนมัติ (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+        <div style="overflow-x:auto"><table style="min-width:1180px"><thead><tr>
+          <th>Unit</th><th>ยอดขายรวม</th><th>ออเดอร์</th><th>ออเดอร์ลูกค้าใหม่</th><th>ออเดอร์ลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>ค่า ADS</th><th>%ค่าแอด</th><th>กำไร</th><th>%กำไร</th><th>ต้นทุนลูกค้าใหม่</th><th>เปอร์บิล</th><th>ต้นทุนทัก</th><th>ROAS รวม</th><th>%ปิดใหม่</th>
+        </tr></thead><tbody id="rUnitFull"></tbody></table></div></div>
+      <div class="panel" style="margin:0 0 18px"><h3>แนะนำงบโฆษณา · รายยูนิต</h3><div class="ph">อิงกำไร + ROAS เทียบจุดคุ้มทุนของช่วงที่เลือก</div>
+        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไร</th><th>ROAS</th><th>คุ้มทุน</th><th>คำแนะนำ</th></tr></thead><tbody id="rBudgetBody"></tbody></table></div>
+      <div class="panel" style="margin:0 0 18px"><h3>กำไร & ROAS คุ้มทุน · รายยูนิต</h3><div class="ph">ช่วงที่เลือก — ROAS คุ้มทุน = ต้องทำเกินค่านี้จึงมีกำไร</div>
+        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="rFinBody"></tbody></table></div>
+      <div class="panel" style="margin:0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">ช่วงที่เลือก — สูง = ฐานซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ)</div>
+        <div id="rCustHealth" style="margin-top:8px"></div></div>
+    </section>
+  </main>
+
+<script>
+// ========== CONFIG: แก้ตรงนี้ก่อน deploy ==========
+var API_URL = 'https://script.google.com/macros/s/AKfycbxNJvcA09fAvYqoz6-in7tacT-YYi2ztqGKRzpuBAuS336N9fASn0C_oXSS-6OXGb1DpQ/exec';
+var API_TOKEN = 'ptglory_x9k2z7'; // ต้องตรงกับ SECRET ใน Code.gs
+// ====================================================
+
+// wrapper: เรียก Apps Script API แทน google.script.run
+function callApi(params, onSuccess, onError) {
+  params.token = API_TOKEN;
+  var qs = Object.keys(params).map(function(k){
+    return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);
+  }).join('&');
+  fetch(API_URL + '?' + qs)
+    .then(function(r){ return r.json(); })
+    .then(onSuccess)
+    .catch(function(e){ onError({message: e.message || 'Network error'}); });
+}
+
+var J='#D34B82',JD='#B23A6C',GREY='#CBB3A6',AM='#A4673F';
+// ===== เกณฑ์สีข้อความตามค่า (แก้ตรงนี้ได้) =====
+var CLR={red:'#ff0000',orange:'#ff9900',green:'#34a853'};
+function metricColor(metric,v){
+  if(v==null||isNaN(v))return '';
+  switch(metric){
+    case 'cost_inbox': return v>80?CLR.red:(v>=70?CLR.orange:CLR.green);   // ต้นทุนทัก
+    case 'ad_pct':     return v>35?CLR.red:CLR.green;                       // %ค่าแอด
+    case 'roas':       return v>3?CLR.green:(v<2.5?CLR.red:'');            // ROAS
+    case 'close':      return v<40?CLR.red:'';                             // %ปิดการขาย
+    case 'profit':     return v<0?CLR.red:'';                              // กำไร
+    case 'margin':     return v<15?CLR.red:(v<20?CLR.orange:CLR.green);    // %กำไร
+  }
+  return '';
+}
+function paint(id,metric,v){var e=el(id);if(e)e.style.color=metricColor(metric,v)||'';}
+function cspan(txt,metric,v){var c=metricColor(metric,v);return c?('<span style="color:'+c+';font-weight:600">'+txt+'</span>'):txt;}
+var charts={},view='daily',monthlyCache=null,curUnit=null;
+Chart.defaults.font.family="'IBM Plex Sans Thai',sans-serif";Chart.defaults.font.size=12;Chart.defaults.color='#5B6B68';
+function baht(v){return (v==null||isNaN(v))?'—':'฿'+Math.round(v).toLocaleString('th-TH');}
+function kfmt(v){return '฿'+Math.round(v/1000)+'k';}
+function mfmt(v){return v>=1e6?('฿'+(v/1e6).toFixed(1)+'M'):('฿'+Math.round(v/1000)+'k');}
+function deltaTag(v,suffix,inverse){
+  if(v==null||isNaN(v)) return '';
+  var good=inverse?v<0:v>=0,arrow=v>=0?'▲':'▼';
+  return '<span class="delta '+(good?'up':'down')+'">'+arrow+' '+(v>=0?'+':'')+v.toFixed(1)+(suffix||'%')+'</span>';
+}
+function pctYoY(c,p){return (p&&c!=null)?(c-p)/p*100:null;}
+function show(l){document.getElementById('loading').style.display=l?'flex':'none';}
+function el(id){return document.getElementById(id);}
+function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(el(id),cfg);}
+
+function switchView(v){
+  view=v;
+  el('navDaily').classList.toggle('on',v==='daily');
+  el('navMonthly').classList.toggle('on',v==='monthly');
+  el('navYearly').classList.toggle('on',v==='yearly');
+  el('navRange').classList.toggle('on',v==='range');
+  el('viewDaily').classList.toggle('hide',v!=='daily');
+  el('viewMonthly').classList.toggle('hide',v==='monthly'?false:true);
+  el('viewYearly').classList.toggle('hide',v!=='yearly');
+  el('viewRange').classList.toggle('hide',v!=='range');
+  el('ctrlDaily').classList.toggle('hide',v!=='daily');
+  el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
+  el('ctrlRange').classList.toggle('hide',v!=='range');
+  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':'สรุปยอดขายตามช่วงเวลา'));
+  if(v==='monthly'){ if(monthlyCache) renderMonthly(monthlyCache); else loadMonthly(); }
+  if(v==='yearly'){ if(monthlyCache) renderYearly(monthlyCache); else loadMonthly(); }
+  if(v==='range'){ loadRange(); }
+}
+
+/* ---------- RANGE (ตามช่วงเวลา) ---------- */
+function rangeDates(){
+  var p=el('rangePick').value, now=new Date(), e=new Date(now), s=new Date(now);
+  function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  if(p==='today'){}
+  else if(p==='yesterday'){s.setDate(s.getDate()-1);e.setDate(e.getDate()-1);}
+  else if(p==='today_yesterday'){s.setDate(s.getDate()-1);}
+  else if(p==='7d'){s.setDate(s.getDate()-6);}
+  else if(p==='14d'){s.setDate(s.getDate()-13);}
+  else if(p==='30d'){s.setDate(s.getDate()-29);}
+  else if(p==='this_month'){s=new Date(now.getFullYear(),now.getMonth(),1);}
+  else if(p==='last_month'){s=new Date(now.getFullYear(),now.getMonth()-1,1);e=new Date(now.getFullYear(),now.getMonth(),0);}
+  else if(p==='custom'){var cs=el('rangeStart').value,ce=el('rangeEnd').value;if(!cs||!ce)return null;return {start:cs,end:ce};}
+  return {start:iso(s),end:iso(e)};
+}
+function loadRange(){
+  el('customRange').classList.toggle('hide',el('rangePick').value!=='custom');
+  var rd=rangeDates(); if(!rd){return;}
+  show(true);
+  callApi({action:'range', start:rd.start, end:rd.end, unit:curUnit||''}, renderRange, onErr);
+}
+function statCard(label,val,sub){return '<div class="kpi"><div class="lbl">'+label+'</div><div class="big num">'+val+'</div><div class="sub">'+(sub||'')+'</div></div>';}
+function num1(v,suf){return (v==null||isNaN(v))?'—':(Math.round(v*10)/10).toLocaleString('th-TH')+(suf||'');}
+function int0(v){return (v==null||isNaN(v))?'—':Math.round(v).toLocaleString('th-TH');}
+function renderRange(d){
+  show(false);
+  if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
+  var m=d.meta,t=d.totals;
+  el('updated').textContent=m.updated;
+  el('subDate').textContent=m.startLabel+' – '+m.endLabel+' ('+m.days+' วัน) · เทียบช่วงก่อน '+m.prevLabel;
+  el('footUpdated').innerHTML='ข้อมูลล่าสุด: '+(m.maxDate||'—')+'<br>หน่วยงานวิเคราะห์ PT Glory';
+  setupUnit(m.units,m.testUnits); updateUnitBadge();
+  if(el('rangeStart')&&m.minDate){el('rangeStart').min=m.minDate;el('rangeStart').max=m.maxDate;el('rangeEnd').min=m.minDate;el('rangeEnd').max=m.maxDate;}
+
+  el('rSales').textContent=baht(t.sales);
+  el('rSalesMeta').innerHTML=deltaTag(d.deltas.sales,' เทียบช่วงก่อน');
+  el('rProfit').textContent=baht(t.profit);paint('rProfit','profit',t.profit);
+  var marg=(t.profit!=null&&t.sales)?t.profit/t.sales*100:null;
+  el('rProfitMeta').innerHTML=deltaTag(d.deltas.profit,' เทียบช่วงก่อน')+(marg!=null?(' <span class="vs">margin '+cspan(marg.toFixed(1)+'%','margin',marg)+'</span>'):'');
+  el('rAd').textContent=baht(t.ad);
+  el('rAdMeta').innerHTML=deltaTag(d.deltas.ad,' เทียบช่วงก่อน')+(t.ad_pct!=null?(' <span class="vs">%ค่าแอด '+cspan(t.ad_pct.toFixed(1)+'%','ad_pct',t.ad_pct)+'</span>'):'');
+
+  // แผงสถิติรวม (ครบทุกฟิลด์ที่ขอ) — ค่าที่มีเกณฑ์สีจะทำสีอัตโนมัติ
+  el('rStats').innerHTML=[
+    statCard('งบที่ใช้จ่าย (ค่า Ads)',baht(t.ad),''),
+    statCard('คนทักใหม่',int0(t.inbox_new),t.inbox_new==null?'ยังไม่มีคอลัมน์ใน data69':''),
+    statCard('คอมเมนต์',int0(t.comments),t.comments==null?'ยังไม่มีคอลัมน์ใน data69':''),
+    statCard('ต้นทุนทัก',cspan(baht(t.cost_inbox),'cost_inbox',t.cost_inbox),'ต่อ 1 ทัก'),
+    statCard('ยอดขายรวม',baht(t.sales),''),
+    statCard('ยอดขายใหม่',baht(t.sales_new),''),
+    statCard('ออเดอร์ใหม่',int0(t.orders_new),t.orders_new==null?'ยังไม่มีคอลัมน์ใน data69':''),
+    statCard('% ปิดใหม่',t.close_new!=null?cspan(t.close_new.toFixed(1)+'%','close',t.close_new):'—',''),
+    statCard('เปอร์บิลใหม่',baht(t.aov_new),''),
+    statCard('% ค่าแอด',t.ad_pct!=null?cspan(t.ad_pct.toFixed(1)+'%','ad_pct',t.ad_pct):'—','ค่าแอด ÷ ยอดขาย'),
+    statCard('ROAS รวม',t.roas_all!=null?cspan(t.roas_all.toFixed(2),'roas',t.roas_all):'—','ยอด ÷ ค่าแอด'),
+    statCard('ROAS ใหม่',t.roas_new!=null?cspan(t.roas_new.toFixed(2),'roas',t.roas_new):'—','ยอดใหม่ ÷ ค่าแอด')
+  ].join('');
+
+  // กราฟแนวโน้มรายวันในช่วง
+  mk('rTrend',{data:{labels:d.series.labels,datasets:[
+    {type:'bar',label:'ยอดขาย',data:d.series.sales,backgroundColor:J,borderRadius:4,barPercentage:.8,categoryPercentage:.85,order:2},
+    {type:'line',label:'เป้า',data:d.series.target,borderColor:AM,borderWidth:2,borderDash:[2,3],pointRadius:0,tension:0,order:1}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+baht(c.parsed.y);}}}},
+    scales:{y:{ticks:{callback:kfmt},grid:{color:'#F3E8E2'},border:{display:false}},x:{grid:{display:false},border:{display:false}}}}});
+
+  // ตารางแนะนำงบ
+  el('rBudgetBody').innerHTML=(d.budgetRec||[]).map(function(r){
+    var tag=r.rec==='เพิ่มงบได้'?'<span class="tag g">▲ เพิ่มงบได้</span>':((r.rec==='ลด/หยุดงบ'||r.rec==='ลดงบ')?'<span class="tag r">▼ '+r.rec+'</span>':'<span class="tag a">คงงบ</span>');
+    return '<tr><td>'+r.unit+'</td><td class="num">'+baht(r.sales)+'</td><td class="num">'+baht(r.ad)+'</td><td class="num" style="color:'+(r.profit<0?'#B4452F':'var(--jade-deep)')+'">'+baht(r.profit)+'</td><td class="num">'+fmtR(r.roas)+'</td><td class="num">'+(r.breakeven!=null?fmtR(r.breakeven):'—')+'</td><td>'+tag+'<div class="vs" style="margin-top:3px">'+r.why+'</div></td></tr>';
+  }).join('')||'<tr><td colspan="7" style="color:var(--faint);text-align:left">ไม่มีข้อมูล</td></tr>';
+
+  renderUnitFull('rUnitFull',d.unitBreakdown);
+  renderUnitFin('rFinBody',d.unitBreakdown);
+  renderCustHealth('rCustHealth',d.unitBreakdown);
+  buildRangeInsights(d);
+}
+function buildRangeInsights(d){
+  var out=[],t=d.totals;
+  if(d.lossStreaks&&d.lossStreaks.length){
+    out.push(insRow('bad','▼','<b>ขาดทุนต่อเนื่อง '+d.lossStreaks.length+' ยูนิต</b> — '+d.lossStreaks.slice(0,4).map(function(r){return r.unit+' ('+r.days+' วัน, รวม '+baht(r.loss)+')';}).join(', ')+(d.lossStreaks.length>4?' …':'')));
+  }
+  var loss=(d.unitBreakdown||[]).filter(function(r){return r.sales>0&&r.profit!=null&&r.profit<0;}).sort(function(a,b){return a.profit-b.profit;});
+  if(loss.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุนในช่วงนี้ '+loss.length+' ยูนิต</b> — '+loss.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(loss.length>3?' …':'')));
+  if(d.profitable&&d.profitable.length){
+    out.push(insRow('good','★','<b>ทำกำไรได้ '+d.profitable.length+' ยูนิต</b> — เด่นสุด '+d.profitable.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(d.profitable.length>3?' …':'')));
+  }
+  var up=(d.budgetRec||[]).filter(function(r){return r.rec==='เพิ่มงบได้';}),dn=(d.budgetRec||[]).filter(function(r){return r.rec==='ลด/หยุดงบ'||r.rec==='ลดงบ';});
+  if(up.length) out.push(insRow('good','⤴','<b>ควรเพิ่มงบ '+up.length+' ยูนิต</b> (กำไรดี ROAS เหนือคุ้มทุน) — '+up.slice(0,4).map(function(r){return r.unit;}).join(', ')));
+  if(dn.length) out.push(insRow('warni','⤵','<b>ควรลด/หยุดงบ '+dn.length+' ยูนิต</b> — '+dn.slice(0,4).map(function(r){return r.unit;}).join(', ')));
+  // ค่าทัก/%ปิด ภาพรวมช่วง
+  if(t.cost_inbox!=null||t.close_new!=null){
+    out.push(insRow('info','◼','<b>ภาพรวมแอด</b> ต้นทุนทัก '+baht(t.cost_inbox)+(t.close_new!=null?(' · %ปิดใหม่ '+t.close_new.toFixed(1)+'%'):'')+(t.roas_all!=null?(' · ROAS รวม '+t.roas_all.toFixed(2)):'')));
+  }
+  el('insRange').innerHTML=out.length?out.join(''):'<div class="insrow info"><span class="ic">i</span><span>ยังไม่มีสัญญาณเด่นพอจะแจ้งในช่วงนี้</span></div>';
+}
+
+/* ---------- DAILY ---------- */
+function loadDaily(dateStr){
+  show(true);
+  callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, renderDaily, onErr);
+}
+function onErr(e){show(false);var d=el('err');d.style.display='block';d.textContent='โหลดข้อมูลไม่สำเร็จ: '+e.message;}
+
+function renderDaily(d){
+  show(false);
+  if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
+  var m=d.meta,k=d.kpi;
+  if(view==='daily') el('subDate').textContent=m.dateLabel+(m.prevLabel?(' · เทียบกับ '+m.prevLabel):'');
+  el('updated').textContent=m.updated;
+  el('footUpdated').innerHTML='ข้อมูลล่าสุด: '+m.maxDate+'<br>หน่วยงานวิเคราะห์ PT Glory';
+  el('lgThis').textContent=m.yearThis;el('lgLast').textContent=m.yearLast;
+  var dp=el('datePick');dp.min=m.minDate;dp.max=m.maxDate;dp.value=m.selected;
+  setupUnit(m.units,m.testUnits);
+  updateUnitBadge();
+
+  el('kSales').textContent=baht(k.sales);
+  var sm=deltaTag(k.salesYoY,' YoY');
+  if(k.achD!=null){var ok=k.achD>=100;sm+=' <span class="delta '+(ok?'up':'warn')+'">'+(ok?'▲':'•')+' บรรลุเป้า '+Math.round(k.achD)+'%</span>';}
+  if(k.targetD!=null) sm+='<div class="vs" style="margin:6px 0 0">เป้า/วัน '+baht(k.targetD)+'</div>';
+  if(k.testSales!=null||k.testMtd!=null){
+    sm+='<div class="vs" style="margin:6px 0 0;color:var(--amber)">ยอดทดลอง (test) '+baht(k.testSales||0)+(k.testMtd!=null?(' · สะสมเดือน '+baht(k.testMtd)):'')+' · แยกจากยอดจริง</div>';
+  }
+  el('kSalesMeta').innerHTML=sm;
+  el('kProfit').textContent=baht(k.profit);paint('kProfit','profit',k.profit);
+  el('kProfitMeta').innerHTML=deltaTag(k.profitYoY,' YoY')+(k.margin!=null?(' <span class="vs">margin '+cspan(k.margin.toFixed(1)+'%','margin',k.margin)+'</span>'):'');
+  el('kMtd').innerHTML=baht(k.mtd)+(k.targetM!=null?(' <span style="font-size:14px;color:var(--faint)"> / '+baht(k.targetM)+'</span>'):'');
+  if(k.mtdRatio!=null){el('mtdFill').style.width=Math.min(k.mtdRatio,100)+'%';
+    el('mtdMeta').innerHTML='<span>บรรลุ '+k.mtdRatio.toFixed(1)+'%</span><span class="num">เหลือ '+baht(Math.max(k.targetM-k.mtd,0))+'</span>';}
+  el('kAd').textContent=baht(k.ad);el('kAdSub').innerHTML=deltaTag(k.adYoY);
+  el('kRoas').textContent=k.roasAll!=null?k.roasAll.toFixed(2):'—';paint('kRoas','roas',k.roasAll);
+  el('kRoasSub').textContent='ยอด ÷ ค่าแอด';
+  el('kRoasNew').textContent=k.roasNew!=null?k.roasNew.toFixed(2):'—';paint('kRoasNew','roas',k.roasNew);
+  el('kRoasNewSub').textContent=k.roasOld!=null?('ROAS เก่า '+k.roasOld.toFixed(2)):'';
+  el('kClose').textContent=k.closeRate!=null?k.closeRate.toFixed(1)+'%':'—';paint('kClose','close',k.closeRate);
+  el('kCloseSub').innerHTML=(k.closeRate!=null&&k.closePrev!=null)?deltaTag(k.closeRate-k.closePrev,'pp'):'';
+  el('kAov').textContent=baht(k.aov);el('kAovSub').innerHTML=deltaTag(k.aovYoY);
+  el('kCost').textContent=baht(k.costInbox);paint('kCost','cost_inbox',k.costInbox);el('kCostSub').innerHTML=deltaTag(k.costYoY,'%',true);
+
+  mk('yoy',{type:'line',data:{labels:d.series.labels,datasets:[
+    {data:d.series.sales,borderColor:J,backgroundColor:'rgba(211,75,130,.12)',borderWidth:2.5,tension:.35,fill:true,pointRadius:0,pointHoverRadius:5},
+    {data:d.series.target,borderColor:AM,borderWidth:2,borderDash:[2,3],tension:0,fill:false,pointRadius:0},
+    {data:d.series.last,borderColor:GREY,borderWidth:2,borderDash:[5,4],tension:.35,fill:false,pointRadius:0,pointHoverRadius:5}]},
+    options:lineOpts(['ยอด','เป้า','ปีก่อน'])});
+  var a=d.newOld.newVal||0,b=d.newOld.oldVal||0,t=a+b;
+  el('noLegend').innerHTML=t?('<span><i style="background:'+J+'"></i>ใหม่ '+baht(a)+' ('+Math.round(a/t*100)+'%)</span><span><i style="background:'+JD+'"></i>เก่า '+baht(b)+' ('+Math.round(b/t*100)+'%)</span>'):'<span class="vs">ไม่มีข้อมูล</span>';
+  mk('donut',donutCfg([a,b],['ลูกค้าใหม่','ลูกค้าเก่า']));
+  mk('pa',barsCfg(d.pa.labels,[{label:'กำไร',data:d.pa.profit,c:J},{label:'ค่า Ads',data:d.pa.ad,c:AM}]));
+  renderUnitChart('uUnit',d.unitBreakdown);
+  buildDailyInsights(d);
+  renderUnitFin('uFinBody',d.unitBreakdown);
+  renderCustHealth('uCustHealth',d.unitBreakdown);
+  el('tbody').innerHTML=d.table.map(function(r){
+    var ach=r.ach==null?'—':('<span class="tag '+(r.ach>=100?'g':(r.ach>=95?'a':'r'))+'">'+Math.round(r.ach)+'%</span>');
+    var y=r.yoy==null?'—':('<span class="tag '+(r.yoy>=0?'g':'r')+'">'+(r.yoy>=0?'+':'')+r.yoy.toFixed(1)+'%</span>');
+    return '<tr><td>'+r.date+'</td><td class="num">'+baht(r.sales)+'</td><td class="num" style="color:#B6A096">'+baht(r.target)+'</td><td>'+ach+'</td><td class="num">'+baht(r.profit)+'</td><td class="num">'+(r.roas!=null?r.roas.toFixed(2):'—')+'</td><td class="num">'+(r.roasAll!=null?r.roasAll.toFixed(2):'—')+'</td><td>'+y+'</td></tr>';}).join('');
+}
+
+/* ---------- MONTHLY ---------- */
+function loadMonthly(){
+  show(true);
+  callApi({action:'monthly', unit:curUnit||''}, function(d){monthlyCache=d;if(view==='yearly')renderYearly(d);else renderMonthly(d);}, onErr);
+}
+function renderMonthly(d){
+  show(false);
+  if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
+  updateUnitBadge();
+  var m=d.meta,C=d.cur,L=d.last;
+  el('updated').textContent=m.updated;
+  el('mLgThis').textContent=m.yearThis;el('mLgLast').textContent=m.yearLast;
+  var mp=el('monthPick');
+  if(mp.options.length===0){
+    var opts='';for(var i=0;i<=m.latest;i++){if(C.sales[i]!=null)opts+='<option value="'+i+'">'+d.labels[i]+' '+m.yearThis+'</option>';}
+    mp.innerHTML=opts;
+    
+    // ตั้งค่าให้เลือกเดือนปัจจุบัน หากเดือนปัจจุบันมีข้อมูล
+    var curMonth = new Date().getMonth();
+    if (C.sales[curMonth] != null) {
+      mp.value = curMonth;
+    } else {
+      mp.value = m.latest;
+    }
+    
+    mp.onchange=function(){renderMonthlyKPI(monthlyCache,+mp.value);};
+  }
+  renderMonthlyKPI(d, mp.value!==''?+mp.value:m.latest);
+
+  mk('mBar',{data:{labels:d.labels,datasets:[
+    {type:'bar',label:m.yearThis,data:C.sales,backgroundColor:J,borderRadius:5,barPercentage:.78,categoryPercentage:.7,order:2},
+    {type:'bar',label:m.yearLast,data:L.sales,backgroundColor:GREY,borderRadius:5,barPercentage:.78,categoryPercentage:.7,order:3},
+    {type:'line',label:'เป้า/เดือน',data:C.targetM,borderColor:AM,borderWidth:2,borderDash:[2,3],pointRadius:0,tension:0,order:1}]},
+    options:lineOpts([m.yearThis,m.yearLast,'เป้า/เดือน'],mfmt)});
+  mk('mCum',{type:'line',data:{labels:d.labels,datasets:[
+    {label:'สะสมปีนี้',data:d.cum.sales,borderColor:J,backgroundColor:'rgba(211,75,130,.12)',borderWidth:2.5,tension:.25,fill:true,pointRadius:0,spanGaps:true},
+    {label:'เป้าสะสม',data:d.cum.target,borderColor:AM,borderWidth:2,borderDash:[2,3],tension:0,pointRadius:0,spanGaps:true},
+    {label:'สะสมปีก่อน',data:d.cum.last,borderColor:GREY,borderWidth:2,borderDash:[5,4],tension:.25,pointRadius:0,spanGaps:true}]},
+    options:lineOpts(['สะสมปีนี้','เป้าสะสม','สะสมปีก่อน'],mfmt)});
+  mk('mPa',barsCfg(d.labels,[{label:'กำไร',data:C.profit,c:J},{label:'ค่า Ads',data:C.ad,c:AM}],mfmt));
+  el('mTbody').innerHTML=d.labels.map(function(lab,i){
+    if(C.sales[i]==null) return '';
+    var ach=(C.targetM[i]&&C.sales[i]!=null)?C.sales[i]/C.targetM[i]*100:null;
+    var marg=(C.profit[i]!=null&&C.sales[i])?C.profit[i]/C.sales[i]*100:null;
+    var yoy=pctYoY(C.sales[i],L.sales[i]);
+    var at=ach==null?'—':('<span class="tag '+(ach>=100?'g':(ach>=95?'a':'r'))+'">'+Math.round(ach)+'%</span>');
+    var yt=yoy==null?'—':('<span class="tag '+(yoy>=0?'g':'r')+'">'+(yoy>=0?'+':'')+yoy.toFixed(1)+'%</span>');
+    return '<tr><td>'+lab+'</td><td class="num">'+baht(C.sales[i])+'</td><td class="num" style="color:#B6A096">'+baht(C.targetM[i])+'</td><td>'+at+'</td><td class="num">'+baht(C.profit[i])+'</td><td class="num">'+(marg!=null?marg.toFixed(1)+'%':'—')+'</td><td class="num">'+baht(C.ad[i])+'</td><td class="num">'+(C.roas[i]!=null?C.roas[i].toFixed(2):'—')+'</td><td>'+yt+'</td></tr>';}).join('');
+}
+function renderMonthlyKPI(d,i){
+  var C=d.cur,L=d.last,m=d.meta;
+  el('subDate').textContent=d.labels[i]+' '+m.yearThis+' · เทียบ '+d.labels[i]+' '+m.yearLast;
+  el('mSales').textContent=baht(C.sales[i]);
+  var sm=deltaTag(pctYoY(C.sales[i],L.sales[i]),' YoY');
+  var ach=(C.targetM[i]&&C.sales[i]!=null)?C.sales[i]/C.targetM[i]*100:null;
+  if(ach!=null){var ok=ach>=100;sm+=' <span class="delta '+(ok?'up':'warn')+'">'+(ok?'▲':'•')+' บรรลุเป้า '+Math.round(ach)+'%</span>';}
+  if(C.targetM[i]!=null) sm+='<div class="vs" style="margin:6px 0 0">เป้า/เดือน '+baht(C.targetM[i])+'</div>';
+  var ts=(C.testSales&&C.testSales[i]!=null)?C.testSales[i]:null;
+  var tytd=0,hasT=false; if(C.testSales){for(var tj=0;tj<=i;tj++){if(C.testSales[tj]!=null){tytd+=C.testSales[tj];hasT=true;}}}
+  if(ts!=null||hasT){
+    sm+='<div class="vs" style="margin:6px 0 0;color:var(--amber)">ยอดทดลอง (test) '+baht(ts||0)+(hasT?(' · สะสมปี '+baht(tytd)):'')+' · แยกจากยอดจริง</div>';
+  }
+  el('mSalesMeta').innerHTML=sm;
+  el('mProfit').textContent=baht(C.profit[i]);paint('mProfit','profit',C.profit[i]);
+  var marg=(C.profit[i]!=null&&C.sales[i])?C.profit[i]/C.sales[i]*100:null;
+  el('mProfitMeta').innerHTML=deltaTag(pctYoY(C.profit[i],L.profit[i]),' YoY')+(marg!=null?(' <span class="vs">margin '+cspan(marg.toFixed(1)+'%','margin',marg)+'</span>'):'');
+  var ytd=0,ytdT=0;for(var j=0;j<=i;j++){if(C.sales[j]!=null)ytd+=C.sales[j];if(C.targetM[j]!=null)ytdT+=C.targetM[j];}
+  el('mYtd').innerHTML=baht(ytd)+(ytdT?(' <span style="font-size:14px;color:var(--faint)"> / '+baht(ytdT)+'</span>'):'');
+  if(ytdT){el('ytdFill').style.width=Math.min(ytd/ytdT*100,100)+'%';
+    el('ytdMeta').innerHTML='<span>บรรลุ '+(ytd/ytdT*100).toFixed(1)+'% ของเป้าสะสม</span><span class="num">'+(ytd>=ytdT?'นำเป้า ':'ตามเป้า ')+baht(Math.abs(ytdT-ytd))+'</span>';}
+  el('mAd').textContent=baht(C.ad[i]);el('mAdSub').innerHTML=deltaTag(pctYoY(C.ad[i],L.ad[i]));
+  el('mRoas').textContent=C.roas[i]!=null?C.roas[i].toFixed(2):'—';paint('mRoas','roas',C.roas[i]);
+  el('mClose').textContent=C.closeRate[i]!=null?C.closeRate[i].toFixed(1)+'%':'—';paint('mClose','close',C.closeRate[i]);
+  el('mAov').textContent=baht(C.aov[i]);
+  el('mMargin').textContent=marg!=null?marg.toFixed(1)+'%':'—';paint('mMargin','margin',marg);
+  // กราฟยอดขายเทียบเป้า แยกราย unit ของเดือนที่เลือก
+  var ur=(d.unitMonthly||[]).map(function(u){return {unit:u.unit,sales:u.sales[i],target:u.target[i]};})
+    .filter(function(r){return (r.sales&&r.sales!==0)||(r.target&&r.target!==0);});
+  renderUnitChart('mUnit',ur);
+  buildMonthlyInsights(d,i);
+  var urAll=(d.unitMonthly||[]).map(function(u){return {unit:u.unit,sales:u.sales[i],ad:u.ad?u.ad[i]:0,profit:u.profit?u.profit[i]:null,newC:u.newC?u.newC[i]:0,oldC:u.oldC?u.oldC[i]:0};});
+  renderUnitFin('mFinBody',urAll);
+  renderCustHealth('mCustHealth',urAll);
+  // ตารางรายเดือนทั้งปีของ Unit ที่เลือก (แสดงเมื่อเลือก Unit เดียว)
+  if(unitSelected()){ el('mUnitDetailWrap').style.display='block'; el('mUnitDetailName').textContent=curUnit; renderMonthDetail('mMonthFull',d.cur,d.labels); }
+  else { el('mUnitDetailWrap').style.display='none'; }
+}
+
+/* ---------- chart config helpers ---------- */
+function lineOpts(names,fmt){fmt=fmt||kfmt;return{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return (names[c.datasetIndex]||c.dataset.label)+': '+baht(c.parsed.y);}}}},
+  scales:{y:{ticks:{callback:fmt},grid:{color:'#F3E8E2'},border:{display:false}},x:{grid:{display:false},border:{display:false}}}};}
+function barsCfg(labels,sets,fmt){fmt=fmt||kfmt;return{type:'bar',data:{labels:labels,datasets:sets.map(function(s){return{label:s.label,data:s.data,backgroundColor:s.c,borderRadius:5,barPercentage:.7};})},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+baht(c.parsed.y);}}}},
+  scales:{y:{ticks:{callback:fmt},grid:{color:'#F3E8E2'},border:{display:false}},x:{grid:{display:false},border:{display:false}}}}};}
+function donutCfg(data,labels){return{type:'doughnut',data:{labels:labels,datasets:[{data:data,backgroundColor:[J,JD],borderWidth:2,borderColor:'#fff'}]},
+  options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.label+': '+baht(c.parsed);}}}}}};}
+
+/* กราฟยอดขายเทียบเป้า แยกราย unit: แท่งคู่ ยอดขาย(ชมพู) vs เป้า(น้ำตาล) */
+function unitCfg(labels,sales,target){
+  return {type:'bar',data:{labels:labels,datasets:[
+    {label:'ยอดขาย',data:sales,backgroundColor:J,borderRadius:5,barPercentage:.9,categoryPercentage:.7},
+    {label:'เป้า',data:target,backgroundColor:AM,borderRadius:5,barPercentage:.9,categoryPercentage:.7}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){
+    var lab=c.dataset.label+': '+baht(c.parsed.y);
+    if(c.dataset.label==='ยอดขาย'){var t=target[c.dataIndex];if(t)lab+=' ('+Math.round(c.parsed.y/t*100)+'% ของเป้า)';}
+    return lab;}}}},
+  scales:{y:{ticks:{callback:kfmt},grid:{color:'#F3E8E2'},border:{display:false}},x:{grid:{display:false},border:{display:false}}}}};
+}
+function renderUnitChart(id,rows){
+  if(!rows||!rows.length){mk(id,{type:'bar',data:{labels:['ไม่มีข้อมูล'],datasets:[{data:[0],backgroundColor:'#F0E3DC'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{y:{display:false},x:{grid:{display:false}}}}});return;}
+  // เรียง unit ตามชื่อจากซ้ายไปขวา (U1, U2, U3, ... แบบเลขธรรมชาติ)
+  rows=rows.slice().sort(function(a,b){return String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true,sensitivity:'base'});});
+  mk(id,unitCfg(rows.map(function(r){return r.unit;}),rows.map(function(r){return r.sales;}),rows.map(function(r){return r.target;})));
+}
+
+/* ---------- Insight อัตโนมัติ ---------- */
+function insRow(type,icon,html){return '<div class="insrow '+type+'"><span class="ic">'+icon+'</span><span>'+html+'</span></div>';}
+function sPct(v){return (v>=0?'+':'')+v.toFixed(1)+'%';}
+function buildDailyInsights(d){
+  var k=d.kpi,m=d.meta,out=[];
+  // 1) Pace สิ้นเดือน
+  if(k.mtd!=null&&k.targetM){
+    var sd=new Date(m.selected+'T00:00:00'),dim=new Date(sd.getFullYear(),sd.getMonth()+1,0).getDate(),dom=sd.getDate();
+    var proj=k.mtd/dom*dim,pNow=k.mtd/k.targetM*100,pProj=proj/k.targetM*100;
+    var t=pProj>=100?'good':(pProj>=90?'warni':'bad');
+    out.push(insRow(t,'◎','<b>คาดการณ์สิ้นเดือน</b> · สะสมถึงวันที่ '+dom+'/'+dim+' = '+baht(k.mtd)+' ('+pNow.toFixed(0)+'% ของเป้า) หากรักษาจังหวะนี้คาดสิ้นเดือน ~<b>'+baht(proj)+'</b> ('+pProj.toFixed(0)+'% ของเป้า '+baht(k.targetM)+')'));
+  }
+  // 2) ยูนิตเด่น/ต้องจับตา ตาม %เป้า
+  var ub=(d.unitBreakdown||[]).filter(function(r){return r.target;});
+  if(ub.length>=2){var wa=ub.map(function(r){return {u:r.unit,a:r.sales/r.target*100};}).sort(function(x,y){return y.a-x.a;});
+    out.push(insRow('info','★','<b>ยูนิตเด่นวันนี้</b> '+wa[0].u+' ('+wa[0].a.toFixed(0)+'% ของเป้า) · <b>ต้องจับตา</b> '+wa[wa.length-1].u+' ('+wa[wa.length-1].a.toFixed(0)+'%)'));}
+  // 3) ROAS รายยูนิต
+  var ur=(d.unitBreakdown||[]).filter(function(r){return r.ad&&r.sales!=null;});
+  if(ur.length>=2){var wr=ur.map(function(r){return {u:r.unit,r:r.sales/r.ad};}).sort(function(x,y){return y.r-x.r;});var wo=wr[wr.length-1];
+    out.push(insRow(wo.r<1?'bad':'good','⚡','<b>ROAS คุ้มสุด</b> '+wr[0].u+' ('+wr[0].r.toFixed(2)+') · <b>แพงสุด</b> '+wo.u+' ('+wo.r.toFixed(2)+(wo.r<1?' — ค่าแอดเกินยอดขาย':'')+')'));}
+  // 4) ความผิดปกติของยอด เทียบค่าเฉลี่ยก่อนหน้า
+  var ss=(d.series&&d.series.sales)?d.series.sales.filter(function(x){return x!=null;}):[];
+  if(ss.length>=4){var last=ss[ss.length-1],pv=ss.slice(0,-1),avg=pv.reduce(function(a,b){return a+b;},0)/pv.length;
+    if(avg>0){var dev=(last-avg)/avg*100;if(Math.abs(dev)>=40)out.push(insRow(dev>0?'good':'bad',dev>0?'▲':'▼','<b>ยอดวันนี้ผิดปกติ</b> '+baht(last)+' ต่างจากค่าเฉลี่ย '+pv.length+' วันก่อน ('+baht(avg)+') '+sPct(dev)));}}
+  if(k.costInbox!=null&&k.costYoY!=null&&Math.abs(k.costYoY)>=30)
+    out.push(insRow(k.costYoY>0?'warni':'good','◼','<b>ต้นทุนทัก</b> '+baht(k.costInbox)+' '+sPct(k.costYoY)+' เทียบวันเดียวกันปีก่อน'));
+  var loss=(d.unitBreakdown||[]).filter(function(r){return r.sales>0&&r.profit!=null&&r.profit<0;}).sort(function(a,b){return a.profit-b.profit;});
+  if(loss.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุน '+loss.length+' ยูนิต</b> — '+loss.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(loss.length>3?' …':'')));
+  var frag=(d.unitBreakdown||[]).map(function(r){var t=(r.newC||0)+(r.oldC||0);return {u:r.unit,sh:t?(r.oldC||0)/t*100:null,t:t};}).filter(function(r){return r.t>0&&r.sh!=null&&r.sh<15;}).sort(function(a,b){return a.sh-b.sh;});
+  if(frag.length) out.push(insRow('warni','◇','<b>ฐานลูกค้าเปราะ '+frag.length+' ยูนิต</b> (ยอดจากลูกค้าเก่า &lt;15%) — '+frag.slice(0,3).map(function(r){return r.u+' ('+r.sh.toFixed(0)+'%)';}).join(', ')+(frag.length>3?' …':'')));
+  el('insDaily').innerHTML=out.length?out.join(''):'<div class="insrow info"><span class="ic">i</span><span>ยังไม่มีสัญญาณเด่นพอจะแจ้งสำหรับวันนี้</span></div>';
+}
+function buildMonthlyInsights(d,i){
+  var C=d.cur,out=[],annualT=0,ytd=0,ytdT=0,j;
+  for(j=0;j<12;j++){if(C.targetM[j]!=null)annualT+=C.targetM[j];}
+  for(j=0;j<=i;j++){if(C.sales[j]!=null)ytd+=C.sales[j];if(C.targetM[j]!=null)ytdT+=C.targetM[j];}
+  if(annualT){var proj=ytd/(i+1)*12,pProj=proj/annualT*100,t=pProj>=100?'good':(pProj>=90?'warni':'bad');
+    out.push(insRow(t,'◎','<b>คาดการณ์ทั้งปี</b> · สะสม '+(i+1)+' เดือน = '+baht(ytd)+' ('+(ytdT?(ytd/ytdT*100).toFixed(0):'-')+'% ของเป้าสะสม) คาดทั้งปี ~<b>'+baht(proj)+'</b> ('+pProj.toFixed(0)+'% ของเป้าปี '+baht(annualT)+')'));}
+  var ub=(d.unitMonthly||[]).map(function(u){return {u:u.unit,s:u.sales[i],t:u.target[i]};}).filter(function(r){return r.t;});
+  if(ub.length>=2){var wa=ub.map(function(r){return {u:r.u,a:r.s/r.t*100};}).sort(function(x,y){return y.a-x.a;});
+    out.push(insRow('info','★','<b>ยูนิตเด่นเดือนนี้</b> '+wa[0].u+' ('+wa[0].a.toFixed(0)+'% ของเป้า) · <b>ต้องจับตา</b> '+wa[wa.length-1].u+' ('+wa[wa.length-1].a.toFixed(0)+'%)'));}
+  var ur=(d.unitMonthly||[]).map(function(u){return {u:u.unit,s:u.sales[i],ad:u.ad?u.ad[i]:null};}).filter(function(r){return r.ad&&r.s!=null;});
+  if(ur.length>=2){var wr=ur.map(function(r){return {u:r.u,r:r.s/r.ad};}).sort(function(x,y){return y.r-x.r;});var wo=wr[wr.length-1];
+    out.push(insRow(wo.r<1?'bad':'good','⚡','<b>ROAS คุ้มสุด</b> '+wr[0].u+' ('+wr[0].r.toFixed(2)+') · <b>แพงสุด</b> '+wo.u+' ('+wo.r.toFixed(2)+')'));}
+  if(i>=1&&C.sales[i]!=null&&C.sales[i-1]!=null&&C.sales[i-1]>0){var mom=(C.sales[i]-C.sales[i-1])/C.sales[i-1]*100;
+    if(Math.abs(mom)>=20)out.push(insRow(mom>0?'good':'bad',mom>0?'▲':'▼','<b>ยอดเทียบเดือนก่อน</b> '+baht(C.sales[i])+' '+sPct(mom)));}
+  var lossM=(d.unitMonthly||[]).map(function(u){return {unit:u.unit,sales:u.sales[i],profit:u.profit?u.profit[i]:null};}).filter(function(r){return r.sales>0&&r.profit!=null&&r.profit<0;}).sort(function(a,b){return a.profit-b.profit;});
+  if(lossM.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุน '+lossM.length+' ยูนิต</b> — '+lossM.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(lossM.length>3?' …':'')));
+  var fragM=(d.unitMonthly||[]).map(function(u){var t=(u.newC?u.newC[i]:0)+(u.oldC?u.oldC[i]:0);return {u:u.unit,sh:t?((u.oldC[i]||0)/t*100):null,t:t};}).filter(function(r){return r.t>0&&r.sh!=null&&r.sh<15;}).sort(function(a,b){return a.sh-b.sh;});
+  if(fragM.length) out.push(insRow('warni','◇','<b>ฐานลูกค้าเปราะ '+fragM.length+' ยูนิต</b> (ยอดจากลูกค้าเก่า &lt;15%) — '+fragM.slice(0,3).map(function(r){return r.u+' ('+r.sh.toFixed(0)+'%)';}).join(', ')+(fragM.length>3?' …':'')));
+  el('insMonthly').innerHTML=out.length?out.join(''):'<div class="insrow info"><span class="ic">i</span><span>ยังไม่มีสัญญาณเด่นพอจะแจ้งสำหรับเดือนนี้</span></div>';
+}
+
+/* ---------- กำไร & ROAS คุ้มทุน รายยูนิต ---------- */
+function fmtR(v){return (v!=null&&isFinite(v))?v.toFixed(2):'—';}
+function unitSelected(){return curUnit && curUnit!=='ทั้งหมด';}
+// ตารางรายเดือน (12 เดือน) ครบทุกตัวชี้วัด จาก cur ที่ถูก enrich แล้ว
+function renderMonthDetail(bodyId,C,labels){
+  function dash(v,fn){return (v==null||isNaN(v))?'—':fn(v);}
+  var html='';
+  for(var i=0;i<12;i++){
+    if(C.sales[i]==null) continue;
+    html+='<tr><td>'+labels[i]+'</td>'
+      +'<td class="num">'+baht(C.sales[i])+'</td>'
+      +'<td class="num">'+dash(C.orders[i],function(v){return int0(v);})+'</td>'
+      +'<td class="num">'+dash(C.ordersN[i],function(v){return int0(v);})+'</td>'
+      +'<td class="num">'+dash(C.ordersO[i],function(v){return int0(v);})+'</td>'
+      +'<td class="num">'+dash(C.repeatPct[i],function(v){return v.toFixed(1)+'%';})+'</td>'
+      +'<td class="num">'+baht(C.ad[i])+'</td>'
+      +'<td class="num">'+dash(C.adPct[i],function(v){return cspan(v.toFixed(1)+'%','ad_pct',v);})+'</td>'
+      +'<td class="num" style="font-weight:600;color:'+((C.profit[i]!=null&&C.profit[i]<0)?'#ff0000':'var(--jade-deep)')+'">'+baht(C.profit[i])+'</td>'
+      +'<td class="num">'+dash(C.margin[i],function(v){return cspan(v.toFixed(1)+'%','margin',v);})+'</td>'
+      +'<td class="num">'+dash(C.costNew[i],function(v){return baht(v);})+'</td>'
+      +'<td class="num">'+dash(C.aov[i],function(v){return baht(v);})+'</td>'
+      +'<td class="num">'+dash(C.costInbox[i],function(v){return cspan(baht(v),'cost_inbox',v);})+'</td>'
+      +'<td class="num">'+dash(C.roasAll[i],function(v){return cspan(v.toFixed(2),'roas',v);})+'</td>'
+      +'<td class="num">'+dash(C.closeNew[i],function(v){return cspan(v.toFixed(1)+'%','close',v);})+'</td>'
+      +'</tr>';
+  }
+  el(bodyId).innerHTML=html||'<tr><td colspan="15" style="color:var(--faint);text-align:left">ยังไม่มีข้อมูลของ Unit นี้</td></tr>';
+}
+function renderYearly(d){
+  show(false);
+  if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
+  var m=d.meta;
+  el('updated').textContent=m.updated;
+  el('yYearLabel').textContent=m.yearThis;
+  el('footUpdated').innerHTML='ข้อมูลปี '+m.yearThis+'<br>หน่วยงานวิเคราะห์ PT Glory';
+  setupUnit(m.units,m.testUnits); updateUnitBadge();
+  renderUnitFull('yUnitFull', d.unitYear);
+  if(unitSelected()){
+    el('yUnitWrap').style.display='block'; el('yHint').style.display='none';
+    el('subDate').textContent='ทั้งปี '+m.yearThis+' · Unit '+curUnit;
+    el('yUnitName').textContent=curUnit; el('yUnitName2').textContent=curUnit;
+    renderMonthDetail('yMonthFull', d.cur, d.labels);
+    mk('yChart',{data:{labels:d.labels,datasets:[
+      {type:'bar',label:'ยอดขาย',data:d.cur.sales,backgroundColor:J,borderRadius:5,barPercentage:.72,categoryPercentage:.72,order:3},
+      {type:'line',label:'กำไร',data:d.cur.profit,borderColor:JD,backgroundColor:'rgba(178,58,108,.12)',borderWidth:2.5,tension:.3,fill:false,pointRadius:0,pointHoverRadius:5,order:1},
+      {type:'line',label:'ค่า Ads',data:d.cur.ad,borderColor:AM,borderWidth:2,borderDash:[2,3],tension:0,fill:false,pointRadius:0,order:2}]},
+      options:lineOpts(['ยอดขาย','กำไร','ค่า Ads'],mfmt)});
+  } else {
+    el('yUnitWrap').style.display='none'; el('yHint').style.display='block';
+    el('subDate').textContent='ทั้งปี '+m.yearThis+' · ทุก Unit (เลือก Unit เพื่อดูรายเดือน)';
+  }
+}
+function renderUnitFull(bodyId,rows){
+  rows=(rows||[]).filter(function(r){return (r.sales&&r.sales!==0)||(r.ad&&r.ad!==0);})
+    .slice().sort(function(a,b){return String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true,sensitivity:'base'});});
+  if(!rows.length){el(bodyId).innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูล</td></tr>';return;}
+  function dash(v,fn){return (v==null||isNaN(v))?'—':fn(v);}
+  el(bodyId).innerHTML=rows.map(function(r){
+    return '<tr><td>'+r.unit+'</td>'
+      +'<td class="num">'+baht(r.sales)+'</td>'
+      +'<td class="num">'+dash(r.orders,function(v){return int0(v);})+'</td>'
+      +'<td class="num">'+dash(r.ordersN,function(v){return int0(v);})+'</td>'
+      +'<td class="num">'+dash(r.ordersO,function(v){return int0(v);})+'</td>'
+      +'<td class="num">'+dash(r.repeatPct,function(v){return v.toFixed(1)+'%';})+'</td>'
+      +'<td class="num">'+baht(r.ad)+'</td>'
+      +'<td class="num">'+dash(r.adPct,function(v){return cspan(v.toFixed(1)+'%','ad_pct',v);})+'</td>'
+      +'<td class="num" style="font-weight:600;color:'+((r.profit!=null&&r.profit<0)?'#ff0000':'var(--jade-deep)')+'">'+baht(r.profit)+'</td>'
+      +'<td class="num">'+dash(r.margin,function(v){return cspan(v.toFixed(1)+'%','margin',v);})+'</td>'
+      +'<td class="num">'+dash(r.costNew,function(v){return baht(v);})+'</td>'
+      +'<td class="num">'+dash(r.aov,function(v){return baht(v);})+'</td>'
+      +'<td class="num">'+dash(r.costInbox,function(v){return cspan(baht(v),'cost_inbox',v);})+'</td>'
+      +'<td class="num">'+dash(r.roasAll,function(v){return cspan(v.toFixed(2),'roas',v);})+'</td>'
+      +'<td class="num">'+dash(r.closeNew,function(v){return cspan(v.toFixed(1)+'%','close',v);})+'</td>'
+      +'</tr>';
+  }).join('');
+}
+function renderUnitFin(bodyId,rows){
+  rows=(rows||[]).filter(function(r){return (r.sales&&r.sales!==0)||(r.ad&&r.ad!==0)||(r.profit&&r.profit!==0);})
+    .slice().sort(function(a,b){return (b.profit||0)-(a.profit||0);});
+  if(!rows.length){el(bodyId).innerHTML='<tr><td colspan="8" style="color:var(--faint);text-align:left">ไม่มีข้อมูล</td></tr>';return;}
+  el(bodyId).innerHTML=rows.map(function(r){
+    var ar=(r.ad)?r.sales/r.ad:null;                       // ROAS จริง
+    var gba=(r.profit!=null&&r.ad!=null)?r.profit+r.ad:null; // กำไรขั้นต้นก่อนหักแอด
+    var be=(gba!=null&&gba>0&&r.sales)?r.sales/gba:null;    // ROAS คุ้มทุน
+    var ppa=(r.ad)?r.profit/r.ad:null;                     // กำไรต่อ 1 บาทแอด
+    var pf=r.profit, st, below=(ar!=null&&be!=null&&ar<be);
+    if(pf==null) st='<span class="tag a">—</span>';
+    else if(pf>0) st='<span class="tag g">กำไร</span>';
+    else if(gba!=null&&gba<=0) st='<span class="tag r">ขาดทุนเชิงโครงสร้าง</span>';
+    else st='<span class="tag r">ขาดทุน</span>';
+    return '<tr><td>'+r.unit+'</td>'
+      +'<td class="num">'+baht(r.sales)+'</td>'
+      +'<td class="num">'+baht(r.ad)+'</td>'
+      +'<td class="num" style="font-weight:600;color:'+(pf<0?'#B4452F':'var(--jade-deep)')+'">'+baht(pf)+'</td>'
+      +'<td class="num">'+fmtR(ar)+'</td>'
+      +'<td class="num"'+(below?' style="color:#B4452F"':'')+'>'+(be!=null?fmtR(be):'—')+'</td>'
+      +'<td class="num">'+(ppa!=null?(ppa>=0?'+':'')+ppa.toFixed(2):'—')+'</td>'
+      +'<td>'+st+'</td></tr>';
+  }).join('');
+}
+function renderCustHealth(id,rows){
+  rows=(rows||[]).map(function(r){var tot=(r.newC||0)+(r.oldC||0);return {unit:r.unit,share:tot?(r.oldC||0)/tot*100:null,tot:tot};})
+    .filter(function(r){return r.tot>0&&r.share!=null;}).sort(function(a,b){return b.share-a.share;});
+  if(!rows.length){el(id).innerHTML='<div class="insrow info"><span class="ic">i</span><span>ไม่มีข้อมูลแยกลูกค้าใหม่/เก่า</span></div>';return;}
+  el(id).innerHTML=rows.map(function(r){
+    var cls=r.share>=30?'good':(r.share>=15?'warni':'bad');
+    return '<div class="chrow"><div class="chu">'+r.unit+'</div><div class="chbar"><div class="chfill '+cls+'" style="width:'+Math.max(2,Math.min(100,r.share))+'%"></div></div><div class="chval">'+r.share.toFixed(0)+'%</div></div>';
+  }).join('');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var testUnitSet={};
+function updateUnitBadge(){
+  var b=el('unitBadge'); if(!b) return;
+  b.style.display=(curUnit&&testUnitSet[curUnit])?'inline-block':'none';
+}
+function setupUnit(units,testUnits){
+  var up=el('unitPick');
+  units=units||[]; testUnits=testUnits||[];
+  testUnitSet={}; testUnits.forEach(function(u){testUnitSet[u]=true;});
+  // แสดงตัวเลือกหน่วยเมื่อมีหน่วยจริงมากกว่า 1 หรือมีหน่วยทดลองให้เจาะดู
+  var shouldShow=units.length>1||testUnits.length>0;
+  if(shouldShow&&up.options.length===0){
+    el('unitLabel').style.display='block';up.style.display='block';
+    var html='<option value="ทั้งหมด">ทั้งหมด (ยอดจริง)</option>';
+    if(units.length) html+='<optgroup label="หน่วยขายจริง">'+units.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
+    if(testUnits.length) html+='<optgroup label="หน่วยทดลอง (test)">'+testUnits.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
+    up.innerHTML=html;
+    up.onchange=function(){curUnit=up.value;monthlyCache=null;el('monthPick').innerHTML='';updateUnitBadge();
+      if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else loadMonthly();};
+  }
+}
+
+el('datePick').addEventListener('change',function(){loadDaily(this.value);});
+el('rangePick').addEventListener('change',loadRange);
+el('rangeStart').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
+el('rangeEnd').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
+el('refreshBtn').addEventListener('click',function(){
+  if(view==='daily')loadDaily(el('datePick').value);
+  else if(view==='range')loadRange();
+  else{monthlyCache=null;el('monthPick').innerHTML='';loadMonthly();}
+});
+
+// 💡 แก้ไขตรงนี้: คำนวณวันเมื่อวานแล้วใช้ส่งไปดึงข้อมูลแทนค่า null ตั้งแต่เปิดโปรแกรมครั้งแรก
+const initialYesterday = new Date();
+initialYesterday.setDate(initialYesterday.getDate() - 1);
+const initYyyy = initialYesterday.getFullYear();
+const initMm = String(initialYesterday.getMonth() + 1).padStart(2, '0');
+const initDd = String(initialYesterday.getDate()).padStart(2, '0');
+const initialDateStr = `${initYyyy}-${initMm}-${initDd}`;
+
+loadDaily(initialDateStr);
+</script>
+</body>
+</html>

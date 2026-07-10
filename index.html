@@ -350,6 +350,10 @@ var ALLOWED_EMAILS = [
 ];
 // ====================================================
 
+// จำผลลัพธ์ล่าสุดไว้ใน localStorage เพื่อให้เปิดเว็บครั้งต่อไปเห็นข้อมูลทันที (ไม่ต้องรอ API) แล้วค่อยรีเฟรชเงียบๆ เบื้องหลัง
+function lsGet(key){ try{ return JSON.parse(localStorage.getItem(key)); }catch(e){ return null; } }
+function lsSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+
 // wrapper: เรียก Apps Script API แทน google.script.run
 function callApi(params, onSuccess, onError) {
   params.token = API_TOKEN;
@@ -379,7 +383,9 @@ function metricColor(metric,v){
 }
 function paint(id,metric,v){var e=el(id);if(e)e.style.color=metricColor(metric,v)||'';}
 function cspan(txt,metric,v){var c=metricColor(metric,v);return c?('<span style="color:'+c+';font-weight:600">'+txt+'</span>'):txt;}
-var charts={},view='daily',monthlyCache=null,curUnit=null,chartDefaultsSet=false;
+var charts={},view='daily',curUnit=null,chartDefaultsSet=false;
+var LS_MONTHLY='glory_monthlyCache_v1',LS_DAILY='glory_dailyCache_v1';
+var monthlyCache=lsGet(LS_MONTHLY+'|'+(curUnit||'')),monthlyCacheFresh=false;
 function baht(v){return (v==null||isNaN(v))?'—':'฿'+Math.round(v).toLocaleString('th-TH');}
 function kfmt(v){return '฿'+Math.round(v/1000)+'k';}
 function mfmt(v){return v>=1e6?('฿'+(v/1e6).toFixed(1)+'M'):('฿'+Math.round(v/1000)+'k');}
@@ -418,8 +424,8 @@ function switchView(v){
   el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('ctrlRange').classList.toggle('hide',v!=='range');
   el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':'สรุปยอดขายตามช่วงเวลา'));
-  if(v==='monthly'){ if(monthlyCache) renderMonthly(monthlyCache); else loadMonthly(); }
-  if(v==='yearly'){ if(monthlyCache) renderYearly(monthlyCache); else loadMonthly(); }
+  if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
+  if(v==='yearly'){ if(monthlyCache){ try{ renderYearly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='range'){ loadRange(); }
 }
 
@@ -444,7 +450,7 @@ function loadRange(){
   var rd=rangeDates(); if(!rd){return;}
   var key=rd.start+'|'+rd.end+'|'+(curUnit||'');
   if(rangeCache[key]){
-    renderRange(rangeCache[key]);
+    try{ renderRange(rangeCache[key]); }catch(e){ delete rangeCache[key]; }
     callApi({action:'range', start:rd.start, end:rd.end, unit:curUnit||''}, function(d){rangeCache[key]=d;renderRange(d);}, function(){});
     return;
   }
@@ -527,22 +533,29 @@ function buildRangeInsights(d){
 }
 
 /* ---------- DAILY ---------- */
-var dailyCache={};
+var dailyCache=lsGet(LS_DAILY)||{};
+function saveDailyCache(){
+  var keys=Object.keys(dailyCache);
+  if(keys.length>8){ // กันไม่ให้ localStorage บวมไม่จำกัด เก็บแค่ล่าสุด 8 รายการ
+    keys.slice(0,keys.length-8).forEach(function(k){delete dailyCache[k];});
+  }
+  lsSet(LS_DAILY,dailyCache);
+}
 function loadDaily(dateStr,force){
   var key=(dateStr||'')+'|'+(curUnit||'');
   if(force) delete dailyCache[key];
   if(dailyCache[key]){
-    renderDaily(dailyCache[key]); // แสดงผลจาก cache ทันที ไม่ต้องรอเน็ต
-    callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, function(d){dailyCache[key]=d;renderDaily(d);}, function(){}); // รีเฟรชข้อมูลล่าสุดเงียบๆ เบื้องหลัง
+    try{ renderDaily(dailyCache[key]); }catch(e){ delete dailyCache[key]; } // ถ้า cache เก่าเสียหาย/รูปแบบเปลี่ยน อย่าให้ค้าง ล้างแล้วไปโหลดใหม่แทน
+    callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, function(d){dailyCache[key]=d;saveDailyCache();renderDaily(d);}, function(){}); // รีเฟรชข้อมูลล่าสุดเงียบๆ เบื้องหลัง
     return;
   }
   show(true);
-  callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, function(d){dailyCache[key]=d;renderDaily(d);prefetchMonthly();}, onErr);
+  callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, function(d){dailyCache[key]=d;saveDailyCache();renderDaily(d);prefetchMonthly();}, onErr);
 }
 function prefetchMonthly(){
-  if(monthlyCache||prefetchMonthly._inFlight) return;
+  if(monthlyCacheFresh||prefetchMonthly._inFlight) return;
   prefetchMonthly._inFlight=true;
-  callApi({action:'monthly', unit:curUnit||''}, function(d){prefetchMonthly._inFlight=false;monthlyCache=d;}, function(){prefetchMonthly._inFlight=false;});
+  callApi({action:'monthly', unit:curUnit||''}, function(d){prefetchMonthly._inFlight=false;monthlyCache=d;monthlyCacheFresh=true;lsSet(LS_MONTHLY+'|'+(curUnit||''),d);}, function(){prefetchMonthly._inFlight=false;});
 }
 function onErr(e){show(false);var d=el('err');d.style.display='block';d.textContent='โหลดข้อมูลไม่สำเร็จ: '+e.message;}
 
@@ -601,9 +614,11 @@ function renderDaily(d){
 }
 
 /* ---------- MONTHLY ---------- */
-function loadMonthly(){
-  show(true);
-  callApi({action:'monthly', unit:curUnit||''}, function(d){monthlyCache=d;if(view==='yearly')renderYearly(d);else renderMonthly(d);}, onErr);
+function loadMonthly(silent){
+  if(!silent) show(true);
+  callApi({action:'monthly', unit:curUnit||''},
+    function(d){monthlyCache=d;monthlyCacheFresh=true;lsSet(LS_MONTHLY+'|'+(curUnit||''),d);if(view==='yearly')renderYearly(d);else renderMonthly(d);},
+    silent?function(){}:onErr);
 }
 function renderMonthly(d){
   show(false);
@@ -898,7 +913,7 @@ function setupUnit(units,testUnits){
     if(units.length) html+='<optgroup label="หน่วยขายจริง">'+units.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
     if(testUnits.length) html+='<optgroup label="หน่วยทดลอง (test)">'+testUnits.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
     up.innerHTML=html;
-    up.onchange=function(){curUnit=up.value;monthlyCache=null;el('monthPick').innerHTML='';updateUnitBadge();
+    up.onchange=function(){curUnit=up.value;monthlyCache=null;monthlyCacheFresh=false;el('monthPick').innerHTML='';updateUnitBadge();
       if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else loadMonthly();};
   }
 }
@@ -910,7 +925,7 @@ el('rangeEnd').addEventListener('change',function(){if(el('rangePick').value==='
 el('refreshBtn').addEventListener('click',function(){
   if(view==='daily')loadDaily(el('datePick').value,true);
   else if(view==='range')loadRange();
-  else{monthlyCache=null;el('monthPick').innerHTML='';loadMonthly();}
+  else{monthlyCache=null;monthlyCacheFresh=false;el('monthPick').innerHTML='';loadMonthly();}
 });
 
 // 💡 แก้ไขตรงนี้: คำนวณวันเมื่อวานแล้วใช้ส่งไปดึงข้อมูลแทนค่า null ตั้งแต่เปิดโปรแกรมครั้งแรก

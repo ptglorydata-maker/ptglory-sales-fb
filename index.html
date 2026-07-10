@@ -324,7 +324,6 @@
   </main>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 // ========== CONFIG: แก้ตรงนี้ก่อน deploy ==========
@@ -380,8 +379,7 @@ function metricColor(metric,v){
 }
 function paint(id,metric,v){var e=el(id);if(e)e.style.color=metricColor(metric,v)||'';}
 function cspan(txt,metric,v){var c=metricColor(metric,v);return c?('<span style="color:'+c+';font-weight:600">'+txt+'</span>'):txt;}
-var charts={},view='daily',monthlyCache=null,curUnit=null;
-Chart.defaults.font.family="'IBM Plex Sans Thai',sans-serif";Chart.defaults.font.size=12;Chart.defaults.color='#5B6B68';
+var charts={},view='daily',monthlyCache=null,curUnit=null,chartDefaultsSet=false;
 function baht(v){return (v==null||isNaN(v))?'—':'฿'+Math.round(v).toLocaleString('th-TH');}
 function kfmt(v){return '฿'+Math.round(v/1000)+'k';}
 function mfmt(v){return v>=1e6?('฿'+(v/1e6).toFixed(1)+'M'):('฿'+Math.round(v/1000)+'k');}
@@ -393,7 +391,14 @@ function deltaTag(v,suffix,inverse){
 function pctYoY(c,p){return (p&&c!=null)?(c-p)/p*100:null;}
 function show(l){document.getElementById('loading').style.display=l?'flex':'none';}
 function el(id){return document.getElementById(id);}
-function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(el(id),cfg);}
+function mk(id,cfg){
+  if(typeof Chart==='undefined'){ setTimeout(function(){mk(id,cfg);},100); return; }
+  if(!chartDefaultsSet){
+    Chart.defaults.font.family="'IBM Plex Sans Thai',sans-serif";Chart.defaults.font.size=12;Chart.defaults.color='#5B6B68';
+    chartDefaultsSet=true;
+  }
+  if(charts[id])charts[id].destroy();charts[id]=new Chart(el(id),cfg);
+}
 
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');el('sideBackdrop').classList.toggle('open');}
 function closeSidebar(){document.querySelector('.side').classList.remove('open');el('sideBackdrop').classList.remove('open');}
@@ -968,5 +973,6 @@ function initLogin(triesLeft){
 }
 initLogin();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </body>
 </html>

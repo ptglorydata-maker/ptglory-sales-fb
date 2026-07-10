@@ -4,8 +4,11 @@
 <!-- GitHub Pages version: ไม่ใช้ google.script.run แล้ว ใช้ fetch() แทน -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://accounts.google.com">
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root{--ink:#492E18;--ink-2:#3A2412;--page:#F5EFEA;--card:#fff;--jade:#D34B82;--jade-deep:#B23A6C;
     --jade-soft:#FAE8F0;--coral-soft:#FBE3DC;--amber:#A4673F;--amber-soft:#F3E7DD;
@@ -321,6 +324,7 @@
   </main>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 // ========== CONFIG: แก้ตรงนี้ก่อน deploy ==========
@@ -941,7 +945,7 @@ function doLogout(){
   if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect();
   location.reload();
 }
-function initLogin(){
+function initLogin(triesLeft){
   if(!GOOGLE_CLIENT_ID){
     showLoginError('ยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID ในโค้ด (ตัวแปร GOOGLE_CLIENT_ID) กรุณาติดต่อผู้ดูแลระบบ');
     return;
@@ -950,7 +954,12 @@ function initLogin(){
   try{ saved=JSON.parse(localStorage.getItem(AUTH_KEY)||'null'); }catch(e){}
   if(saved&&isAllowed(saved.email)){ enterApp(saved); return; }
   if(!window.google||!google.accounts||!google.accounts.id){
-    setTimeout(initLogin,150);
+    triesLeft=triesLeft==null?40:triesLeft; // ~6 วินาที (40 x 150ms)
+    if(triesLeft<=0){
+      showLoginError('โหลดระบบล็อกอินไม่สำเร็จ อาจเป็นเพราะเน็ตช้าหรือถูกบล็อก กรุณาลองรีเฟรชหน้าใหม่');
+      return;
+    }
+    setTimeout(function(){initLogin(triesLeft-1);},150);
     return;
   }
   google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleCredentialResponse});

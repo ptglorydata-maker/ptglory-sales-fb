@@ -79,7 +79,8 @@
   .kpi .sub{font-size:11.5px;color:var(--faint);margin-top:3px}
   .row-charts{grid-template-columns:1.55fr 1fr;margin-bottom:18px}
   @media(max-width:900px){.row-charts{grid-template-columns:1fr}}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(110,74,51,.04)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(110,74,51,.04);min-width:0}
+  .grid,.card,.kpi{min-width:0}
   .panel h3{font-size:16px;font-weight:600;margin-bottom:2px}.panel .ph{font-size:12.5px;color:var(--faint);margin-bottom:12px}
   .legend{display:flex;gap:15px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:8px}
   .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
@@ -226,10 +227,10 @@
           <div class="legend"><span><i style="background:var(--jade)"></i>กำไร</span><span><i style="background:var(--amber)"></i>ค่า Ads</span></div>
           <div class="cw" style="height:230px"><canvas id="pa"></canvas></div></div>
         <div class="panel" style="margin:0"><h3>สรุปยอดรายวัน (7 วันล่าสุด)</h3><div class="ph">เทียบเป้า/วัน และยอดวันเดียวกันปีก่อน</div>
-          <table><thead><tr><th>วันที่</th><th>ยอดรวม</th><th>เป้า/วัน</th><th>%เป้า</th><th>กำไร</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>YoY</th></tr></thead><tbody id="tbody"></tbody></table></div>
+          <div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>วันที่</th><th>ยอดรวม</th><th>เป้า/วัน</th><th>%เป้า</th><th>กำไร</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>YoY</th></tr></thead><tbody id="tbody"></tbody></table></div></div>
       </div>
       <div class="panel" style="margin:18px 0 0"><h3>กำไร & ROAS คุ้มทุน · รายยูนิต</h3><div class="ph">วันที่เลือก — "ROAS คุ้มทุน" = ต้องทำ ROAS เกินค่านี้ถึงจะมีกำไร (คำนวณจากกำไรสุทธิหลังหักค่าแอด)</div>
-        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="uFinBody"></tbody></table></div>
+        <div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="uFinBody"></tbody></table></div></div>
       <div class="panel" style="margin:18px 0 0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">วันที่เลือก — ยิ่งสูง = ฐานลูกค้าซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ/ต้นทุนหาลูกค้าสูง)</div>
         <div id="uCustHealth" style="margin-top:8px"></div></div>
     </section>
@@ -265,9 +266,9 @@
           <div class="cw" style="height:260px"><canvas id="mPa"></canvas></div></div>
       </div>
       <div class="panel" style="margin:0"><h3>สรุปยอดรายเดือน</h3><div class="ph">เทียบเป้า/เดือน และปีก่อน</div>
-        <table><thead><tr><th>เดือน</th><th>ยอดรวม</th><th>เป้า/เดือน</th><th>%เป้า</th><th>กำไร</th><th>margin</th><th>ค่า Ads</th><th>ROAS</th><th>YoY</th></tr></thead><tbody id="mTbody"></tbody></table></div>
+        <div style="overflow-x:auto"><table style="min-width:700px"><thead><tr><th>เดือน</th><th>ยอดรวม</th><th>เป้า/เดือน</th><th>%เป้า</th><th>กำไร</th><th>margin</th><th>ค่า Ads</th><th>ROAS</th><th>YoY</th></tr></thead><tbody id="mTbody"></tbody></table></div></div>
       <div class="panel" style="margin:18px 0 0"><h3>กำไร & ROAS คุ้มทุน · รายยูนิต</h3><div class="ph">เดือนที่เลือก — "ROAS คุ้มทุน" = ต้องทำ ROAS เกินค่านี้ถึงจะมีกำไร (คำนวณจากกำไรสุทธิหลังหักค่าแอด)</div>
-        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="mFinBody"></tbody></table></div>
+        <div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="mFinBody"></tbody></table></div></div>
       <div class="panel" style="margin:18px 0 0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">เดือนที่เลือก — ยิ่งสูง = ฐานลูกค้าซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ/ต้นทุนหาลูกค้าสูง)</div>
         <div id="mCustHealth" style="margin-top:8px"></div></div>
       <div class="panel" id="mUnitDetailWrap" style="margin:18px 0 0;display:none"><h3>รายเดือนทั้งปี · <span id="mUnitDetailName"></span></h3><div class="ph">ตัวชี้วัดครบทุกเดือนของ Unit ที่เลือก (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
@@ -311,9 +312,9 @@
           <th>Unit</th><th>ยอดขายรวม</th><th>ออเดอร์</th><th>ออเดอร์ลูกค้าใหม่</th><th>ออเดอร์ลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>ค่า ADS</th><th>%ค่าแอด</th><th>กำไร</th><th>%กำไร</th><th>ต้นทุนลูกค้าใหม่</th><th>เปอร์บิล</th><th>ต้นทุนทัก</th><th>ROAS รวม</th><th>%ปิดใหม่</th>
         </tr></thead><tbody id="rUnitFull"></tbody></table></div></div>
       <div class="panel" style="margin:0 0 18px"><h3>แนะนำงบโฆษณา · รายยูนิต</h3><div class="ph">อิงกำไร + ROAS เทียบจุดคุ้มทุนของช่วงที่เลือก</div>
-        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไร</th><th>ROAS</th><th>คุ้มทุน</th><th>คำแนะนำ</th></tr></thead><tbody id="rBudgetBody"></tbody></table></div>
+        <div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไร</th><th>ROAS</th><th>คุ้มทุน</th><th>คำแนะนำ</th></tr></thead><tbody id="rBudgetBody"></tbody></table></div></div>
       <div class="panel" style="margin:0 0 18px"><h3>กำไร & ROAS คุ้มทุน · รายยูนิต</h3><div class="ph">ช่วงที่เลือก — ROAS คุ้มทุน = ต้องทำเกินค่านี้จึงมีกำไร</div>
-        <table><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="rFinBody"></tbody></table></div>
+        <div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไรสุทธิ</th><th>ROAS จริง</th><th>ROAS คุ้มทุน</th><th>กำไร/บาทแอด</th><th>สถานะ</th></tr></thead><tbody id="rFinBody"></tbody></table></div></div>
       <div class="panel" style="margin:0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">ช่วงที่เลือก — สูง = ฐานซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ)</div>
         <div id="rCustHealth" style="margin-top:8px"></div></div>
     </section>

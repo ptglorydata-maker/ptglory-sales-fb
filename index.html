@@ -438,11 +438,18 @@ function rangeDates(){
   else if(p==='custom'){var cs=el('rangeStart').value,ce=el('rangeEnd').value;if(!cs||!ce)return null;return {start:cs,end:ce};}
   return {start:iso(s),end:iso(e)};
 }
+var rangeCache={};
 function loadRange(){
   el('customRange').classList.toggle('hide',el('rangePick').value!=='custom');
   var rd=rangeDates(); if(!rd){return;}
+  var key=rd.start+'|'+rd.end+'|'+(curUnit||'');
+  if(rangeCache[key]){
+    renderRange(rangeCache[key]);
+    callApi({action:'range', start:rd.start, end:rd.end, unit:curUnit||''}, function(d){rangeCache[key]=d;renderRange(d);}, function(){});
+    return;
+  }
   show(true);
-  callApi({action:'range', start:rd.start, end:rd.end, unit:curUnit||''}, renderRange, onErr);
+  callApi({action:'range', start:rd.start, end:rd.end, unit:curUnit||''}, function(d){rangeCache[key]=d;renderRange(d);}, onErr);
 }
 function statCard(label,val,sub){return '<div class="kpi"><div class="lbl">'+label+'</div><div class="big num">'+val+'</div><div class="sub">'+(sub||'')+'</div></div>';}
 function num1(v,suf){return (v==null||isNaN(v))?'—':(Math.round(v*10)/10).toLocaleString('th-TH')+(suf||'');}
@@ -520,9 +527,22 @@ function buildRangeInsights(d){
 }
 
 /* ---------- DAILY ---------- */
-function loadDaily(dateStr){
+var dailyCache={};
+function loadDaily(dateStr,force){
+  var key=(dateStr||'')+'|'+(curUnit||'');
+  if(force) delete dailyCache[key];
+  if(dailyCache[key]){
+    renderDaily(dailyCache[key]); // แสดงผลจาก cache ทันที ไม่ต้องรอเน็ต
+    callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, function(d){dailyCache[key]=d;renderDaily(d);}, function(){}); // รีเฟรชข้อมูลล่าสุดเงียบๆ เบื้องหลัง
+    return;
+  }
   show(true);
-  callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, renderDaily, onErr);
+  callApi({action:'daily', date:dateStr||'', unit:curUnit||''}, function(d){dailyCache[key]=d;renderDaily(d);prefetchMonthly();}, onErr);
+}
+function prefetchMonthly(){
+  if(monthlyCache||prefetchMonthly._inFlight) return;
+  prefetchMonthly._inFlight=true;
+  callApi({action:'monthly', unit:curUnit||''}, function(d){prefetchMonthly._inFlight=false;monthlyCache=d;}, function(){prefetchMonthly._inFlight=false;});
 }
 function onErr(e){show(false);var d=el('err');d.style.display='block';d.textContent='โหลดข้อมูลไม่สำเร็จ: '+e.message;}
 
@@ -888,7 +908,7 @@ el('rangePick').addEventListener('change',loadRange);
 el('rangeStart').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
 el('rangeEnd').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
 el('refreshBtn').addEventListener('click',function(){
-  if(view==='daily')loadDaily(el('datePick').value);
+  if(view==='daily')loadDaily(el('datePick').value,true);
   else if(view==='range')loadRange();
   else{monthlyCache=null;el('monthPick').innerHTML='';loadMonthly();}
 });
@@ -926,10 +946,13 @@ function showLoginError(msg){
   e.innerHTML='<b>เข้าใช้งานไม่ได้</b>'+esc(msg);
   e.style.display='block';
 }
+var appEntered=false;
 function enterApp(profile){
   localStorage.setItem(AUTH_KEY,JSON.stringify(profile));
   el('loginGate').style.display='none';
   el('loggedInAs').textContent=profile.email;
+  if(appEntered) return; // กันไม่ให้บูตซ้ำถ้ามีการเรียก enterApp มากกว่าหนึ่งครั้ง (เช่น retry loop ของการรอโหลด Google script)
+  appEntered=true;
   bootApp();
 }
 function handleCredentialResponse(resp){
@@ -951,6 +974,7 @@ function doLogout(){
   location.reload();
 }
 function initLogin(triesLeft){
+  if(appEntered) return;
   if(!GOOGLE_CLIENT_ID){
     showLoginError('ยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID ในโค้ด (ตัวแปร GOOGLE_CLIENT_ID) กรุณาติดต่อผู้ดูแลระบบ');
     return;

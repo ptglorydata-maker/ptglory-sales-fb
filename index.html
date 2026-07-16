@@ -158,7 +158,6 @@
     <div class="nav" id="navMonthly" onclick="switchView('monthly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/></svg>ภาพรวมรายเดือน</div>
     <div class="nav" id="navYearly" onclick="switchView('yearly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="6" y="10" width="3" height="8"/><rect x="11" y="6" width="3" height="12"/><rect x="16" y="13" width="3" height="5"/></svg>ภาพรวมรายปี</div>
     <div class="nav" id="navRange" onclick="switchView('range')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M8 14h3M8 17h6"/></svg>ตามช่วงเวลา</div>
-    <div class="nav" id="navUsage" onclick="switchView('usage')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>การใช้งาน</div>
     <div class="pickwrap">
       <div id="ctrlDaily"><label>เลือกวันที่</label><input type="date" id="datePick"></div>
       <div id="ctrlMonthly" class="hide">
@@ -188,7 +187,7 @@
       <select id="unitPick" style="display:none; background-color: white; color: #333333;"></select>
       <button class="btn" id="refreshBtn" style="display:none; background-color: white; color: #333333">รีเฟรชข้อมูล</button>
     </div>
-    <div class="foot"><span id="footUpdated">กำลังโหลด…</span><br><span id="loggedInAs"></span> <button class="logoutBtn" onclick="doLogout()">ออกจากระบบ</button></div>
+    <div class="foot"><span id="footUpdated">กำลังโหลด…</span><br><span id="footUsage" style="display:none">👥 ผู้ใช้งาน: วันนี้ <span id="uToday">—</span> · เดือนนี้ <span id="uMonth">—</span> · ปีนี้ <span id="uYear">—</span></span><br><span id="loggedInAs"></span> <button class="logoutBtn" onclick="doLogout()">ออกจากระบบ</button></div>
   </aside>
   <main class="main">
     <div id="loading"><span class="spin"></span> กำลังโหลดข้อมูล…</div>
@@ -322,17 +321,6 @@
       <div class="panel" style="margin:0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">ช่วงที่เลือก — สูง = ฐานซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ)</div>
         <div id="rCustHealth" style="margin-top:8px"></div></div>
     </section>
-
-    <section id="viewUsage" class="hide">
-      <div class="grid row-kpi">
-        <div class="kpi"><div class="lbl">ผู้ใช้งานวันนี้</div><div class="big num" id="uToday">—</div><div class="sub">คนไม่ซ้ำที่เข้าใช้</div></div>
-        <div class="kpi"><div class="lbl">ผู้ใช้งานเดือนนี้</div><div class="big num" id="uMonth">—</div><div class="sub">คนไม่ซ้ำที่เข้าใช้</div></div>
-        <div class="kpi"><div class="lbl">ผู้ใช้งานไตรมาสนี้</div><div class="big num" id="uQuarter">—</div><div class="sub">คนไม่ซ้ำที่เข้าใช้</div></div>
-        <div class="kpi"><div class="lbl">ผู้ใช้งานปีนี้</div><div class="big num" id="uYear">—</div><div class="sub">คนไม่ซ้ำที่เข้าใช้</div></div>
-      </div>
-      <div class="panel" style="margin:18px 0 0"><h3>ประวัติการใช้งานรายวัน</h3><div class="ph">จำนวนคนไม่ซ้ำที่เข้าใช้งานแดชบอร์ดในแต่ละวัน (ย้อนหลังสูงสุด 60 วัน)</div>
-        <table><thead><tr><th>วันที่</th><th>จำนวนผู้ใช้งาน</th></tr></thead><tbody id="uDailyBody"></tbody></table></div>
-    </section>
   </main>
   </div>
 
@@ -428,38 +416,29 @@ function switchView(v){
   el('navMonthly').classList.toggle('on',v==='monthly');
   el('navYearly').classList.toggle('on',v==='yearly');
   el('navRange').classList.toggle('on',v==='range');
-  el('navUsage').classList.toggle('on',v==='usage');
   el('viewDaily').classList.toggle('hide',v!=='daily');
   el('viewMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('viewYearly').classList.toggle('hide',v!=='yearly');
   el('viewRange').classList.toggle('hide',v!=='range');
-  el('viewUsage').classList.toggle('hide',v!=='usage');
   el('ctrlDaily').classList.toggle('hide',v!=='daily');
   el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('ctrlRange').classList.toggle('hide',v!=='range');
-  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':(v==='usage'?'สถิติการใช้งานแดชบอร์ด':'สรุปยอดขายตามช่วงเวลา')));
+  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':'สรุปยอดขายตามช่วงเวลา'));
   if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='yearly'){ if(monthlyCache){ try{ renderYearly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='range'){ loadRange(); }
-  if(v==='usage'){ loadUsage(); }
 }
 
-/* ---------- USAGE (สถิติการใช้งานแดชบอร์ด) ---------- */
+/* ---------- USAGE (สถิติการใช้งานแดชบอร์ด — แสดงอัตโนมัติที่ท้าย sidebar ไม่ต้องกดเข้าดู) ---------- */
 function loadUsage(){
-  show(true);
-  callApi({mode:'usage'}, renderUsage, onErr);
+  callApi({mode:'usage'}, renderUsage, function(){});
 }
 function renderUsage(d){
-  show(false);
-  if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
-  el('updated').textContent=d.updated;
+  if(d.error) return;
   el('uToday').textContent=int0(d.today);
   el('uMonth').textContent=int0(d.month);
-  el('uQuarter').textContent=int0(d.quarter);
   el('uYear').textContent=int0(d.year);
-  el('uDailyBody').innerHTML=(d.daily||[]).map(function(r){
-    return '<tr><td>'+r.date+'</td><td class="num">'+int0(r.count)+'</td></tr>';
-  }).join('')||'<tr><td colspan="2" style="color:var(--faint)">ยังไม่มีข้อมูล</td></tr>';
+  el('footUsage').style.display='block';
 }
 function trackVisit(email){
   try{
@@ -990,6 +969,7 @@ const initialDateStr = `${initYyyy}-${initMm}-${initDd}`;
 function bootApp(){
   el('appRoot').style.display='flex';
   loadDaily(initialDateStr);
+  loadUsage();
 }
 
 /* ---------- Gmail Login (จำกัดสิทธิ์ตามอีเมล) ---------- */

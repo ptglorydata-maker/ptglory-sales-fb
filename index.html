@@ -283,7 +283,7 @@
     <section id="viewYearly" class="hide">
       <div class="panel" style="margin:0 0 18px"><h3>ภาพรวมรายปี · ทุก Unit</h3><div class="ph">สรุปทั้งปี <span id="yYearLabel"></span> ต่อ 1 Unit — ค่าที่มีเกณฑ์ทำสีอัตโนมัติ (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
         <div style="overflow-x:auto"><table style="min-width:1180px"><thead><tr>
-          <th>Unit</th><th>ยอดขายรวม</th><th>ออเดอร์</th><th>ออเดอร์ลูกค้าใหม่</th><th>ออเดอร์ลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>ค่า ADS</th><th>%ค่าแอด</th><th>กำไร</th><th>%กำไร</th><th>ต้นทุนลูกค้าใหม่</th><th>เปอร์บิล</th><th>ต้นทุนทัก</th><th>ROAS รวม</th><th>%ปิดใหม่</th>
+          <th>Unit</th><th>ยอดขายรวม</th><th>ยอดลูกค้าใหม่</th><th>ยอดลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>%ปิดใหม่</th><th>เปอร์บิล</th><th>ค่า ADS</th><th>ต้นทุนทัก</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>กำไร</th><th>%กำไร</th>
         </tr></thead><tbody id="yUnitFull"></tbody></table></div></div>
       <div id="yUnitWrap" style="display:none">
         <div class="panel" style="margin:0 0 18px"><h3>แนวโน้มรายเดือน · <span id="yUnitName"></span></h3><div class="ph">ยอดขาย (แท่ง) · กำไร (เส้น) · ค่า Ads (เส้น) ตลอดทั้งปี</div>
@@ -312,7 +312,7 @@
         <div class="cw" style="height:240px"><canvas id="rTrend"></canvas></div></div>
       <div class="panel" style="margin:0 0 18px"><h3>สรุปรายยูนิต · ครบทุกตัวชี้วัด</h3><div class="ph">อ้างอิงหัวข้อจากชีต "สรุปปี 69" — ค่าที่มีเกณฑ์จะทำสีอัตโนมัติ (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
         <div style="overflow-x:auto"><table style="min-width:1180px"><thead><tr>
-          <th>Unit</th><th>ยอดขายรวม</th><th>ออเดอร์</th><th>ออเดอร์ลูกค้าใหม่</th><th>ออเดอร์ลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>ค่า ADS</th><th>%ค่าแอด</th><th>กำไร</th><th>%กำไร</th><th>ต้นทุนลูกค้าใหม่</th><th>เปอร์บิล</th><th>ต้นทุนทัก</th><th>ROAS รวม</th><th>%ปิดใหม่</th>
+          <th>Unit</th><th>ยอดขายรวม</th><th>ยอดลูกค้าใหม่</th><th>ยอดลูกค้าเก่า</th><th>%ซื้อซ้ำ</th><th>%ปิดใหม่</th><th>เปอร์บิล</th><th>ค่า ADS</th><th>ต้นทุนทัก</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>กำไร</th><th>%กำไร</th>
         </tr></thead><tbody id="rUnitFull"></tbody></table></div></div>
       <div class="panel" style="margin:0 0 18px"><h3>แนะนำงบโฆษณา · รายยูนิต</h3><div class="ph">อิงกำไร + ROAS เทียบจุดคุ้มทุนของช่วงที่เลือก</div>
         <div style="overflow-x:auto"><table style="min-width:640px"><thead><tr><th>Unit</th><th>ยอดขาย</th><th>ค่า Ads</th><th>กำไร</th><th>ROAS</th><th>คุ้มทุน</th><th>คำแนะนำ</th></tr></thead><tbody id="rBudgetBody"></tbody></table></div></div>
@@ -482,7 +482,6 @@ function renderRange(d){
   el('rStats').innerHTML=[
     statCard('งบที่ใช้จ่าย (ค่า Ads)',baht(t.ad),''),
     statCard('คนทักใหม่',int0(t.inbox_new),t.inbox_new==null?'ยังไม่มีคอลัมน์ใน data69':''),
-    statCard('คอมเมนต์',int0(t.comments),t.comments==null?'ยังไม่มีคอลัมน์ใน data69':''),
     statCard('ต้นทุนทัก',cspan(baht(t.cost_inbox),'cost_inbox',t.cost_inbox),'ต่อ 1 ทัก'),
     statCard('ยอดขายรวม',baht(t.sales),''),
     statCard('ยอดขายใหม่',baht(t.sales_new),''),
@@ -515,16 +514,16 @@ function renderRange(d){
 function buildRangeInsights(d){
   var out=[],t=d.totals;
   if(d.lossStreaks&&d.lossStreaks.length){
-    out.push(insRow('bad','▼','<b>ขาดทุนต่อเนื่อง '+d.lossStreaks.length+' ยูนิต</b> — '+d.lossStreaks.slice(0,4).map(function(r){return r.unit+' ('+r.days+' วัน, รวม '+baht(r.loss)+')';}).join(', ')+(d.lossStreaks.length>4?' …':'')));
+    out.push(insRow('bad','▼','<b>ขาดทุนต่อเนื่อง '+d.lossStreaks.length+' ยูนิต</b> — '+truncList_(d.lossStreaks,function(r){return r.unit+' ('+r.days+' วัน, รวม '+baht(r.loss)+')';},4)));
   }
   var loss=(d.unitBreakdown||[]).filter(function(r){return r.sales>0&&r.profit!=null&&r.profit<0;}).sort(function(a,b){return a.profit-b.profit;});
-  if(loss.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุนในช่วงนี้ '+loss.length+' ยูนิต</b> — '+loss.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(loss.length>3?' …':'')));
+  if(loss.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุนในช่วงนี้ '+loss.length+' ยูนิต</b> — '+truncList_(loss,function(r){return r.unit+' ('+baht(r.profit)+')';})));
   if(d.profitable&&d.profitable.length){
-    out.push(insRow('good','★','<b>ทำกำไรได้ '+d.profitable.length+' ยูนิต</b> — เด่นสุด '+d.profitable.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(d.profitable.length>3?' …':'')));
+    out.push(insRow('good','★','<b>ทำกำไรได้ '+d.profitable.length+' ยูนิต</b> — เด่นสุด '+truncList_(d.profitable,function(r){return r.unit+' ('+baht(r.profit)+')';})));
   }
   var up=(d.budgetRec||[]).filter(function(r){return r.rec==='เพิ่มงบได้';}),dn=(d.budgetRec||[]).filter(function(r){return r.rec==='ลด/หยุดงบ'||r.rec==='ลดงบ';});
-  if(up.length) out.push(insRow('good','⤴','<b>ควรเพิ่มงบ '+up.length+' ยูนิต</b> (กำไรดี ROAS เหนือคุ้มทุน) — '+up.slice(0,4).map(function(r){return r.unit;}).join(', ')));
-  if(dn.length) out.push(insRow('warni','⤵','<b>ควรลด/หยุดงบ '+dn.length+' ยูนิต</b> — '+dn.slice(0,4).map(function(r){return r.unit;}).join(', ')));
+  if(up.length) out.push(insRow('good','⤴','<b>ควรเพิ่มงบ '+up.length+' ยูนิต</b> (กำไรดี ROAS เหนือคุ้มทุน) — '+truncList_(up,function(r){return r.unit;},4)));
+  if(dn.length) out.push(insRow('warni','⤵','<b>ควรลด/หยุดงบ '+dn.length+' ยูนิต</b> — '+truncList_(dn,function(r){return r.unit;},4)));
   // ค่าทัก/%ปิด ภาพรวมช่วง
   if(t.cost_inbox!=null||t.close_new!=null){
     out.push(insRow('info','◼','<b>ภาพรวมแอด</b> ต้นทุนทัก '+baht(t.cost_inbox)+(t.close_new!=null?(' · %ปิดใหม่ '+t.close_new.toFixed(1)+'%'):'')+(t.roas_all!=null?(' · ROAS รวม '+t.roas_all.toFixed(2)):'')));
@@ -735,6 +734,18 @@ function renderUnitChart(id,rows){
 /* ---------- Insight อัตโนมัติ ---------- */
 function insRow(type,icon,html){return '<div class="insrow '+type+'"><span class="ic">'+icon+'</span><span>'+html+'</span></div>';}
 function sPct(v){return (v>=0?'+':'')+v.toFixed(1)+'%';}
+var _insMoreSeq_=0;
+// รวมรายการเป็นข้อความ พร้อมลิงก์ "ดูเพิ่มเติม" ถ้ามีมากกว่า limit รายการ (กดเพื่อขยายดูที่เหลือ)
+function truncList_(arr,fmt,limit){
+  limit=limit||3;
+  if(!arr||!arr.length) return '';
+  if(arr.length<=limit) return arr.map(fmt).join(', ');
+  var id='insMore'+(_insMoreSeq_++);
+  var shown=arr.slice(0,limit).map(fmt).join(', ');
+  var rest=arr.slice(limit).map(fmt).join(', ');
+  return shown+' <a href="#" onclick="event.preventDefault();toggleInsMore(\''+id+'\')" style="color:var(--jade-deep);font-weight:600;white-space:nowrap">ดูเพิ่มเติม (+'+(arr.length-limit)+')</a><span id="'+id+'" class="hide">, '+rest+'</span>';
+}
+function toggleInsMore(id){ var e=el(id); if(e) e.classList.toggle('hide'); }
 function buildDailyInsights(d){
   var k=d.kpi,m=d.meta,out=[];
   // 1) Pace สิ้นเดือน
@@ -759,9 +770,9 @@ function buildDailyInsights(d){
   if(k.costInbox!=null&&k.costYoY!=null&&Math.abs(k.costYoY)>=30)
     out.push(insRow(k.costYoY>0?'warni':'good','◼','<b>ต้นทุนทัก</b> '+baht(k.costInbox)+' '+sPct(k.costYoY)+' เทียบวันเดียวกันปีก่อน'));
   var loss=(d.unitBreakdown||[]).filter(function(r){return r.sales>0&&r.profit!=null&&r.profit<0;}).sort(function(a,b){return a.profit-b.profit;});
-  if(loss.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุน '+loss.length+' ยูนิต</b> — '+loss.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(loss.length>3?' …':'')));
+  if(loss.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุน '+loss.length+' ยูนิต</b> — '+truncList_(loss,function(r){return r.unit+' ('+baht(r.profit)+')';})));
   var frag=(d.unitBreakdown||[]).map(function(r){var t=(r.newC||0)+(r.oldC||0);return {u:r.unit,sh:t?(r.oldC||0)/t*100:null,t:t};}).filter(function(r){return r.t>0&&r.sh!=null&&r.sh<15;}).sort(function(a,b){return a.sh-b.sh;});
-  if(frag.length) out.push(insRow('warni','◇','<b>ฐานลูกค้าเปราะ '+frag.length+' ยูนิต</b> (ยอดจากลูกค้าเก่า &lt;15%) — '+frag.slice(0,3).map(function(r){return r.u+' ('+r.sh.toFixed(0)+'%)';}).join(', ')+(frag.length>3?' …':'')));
+  if(frag.length) out.push(insRow('warni','◇','<b>ฐานลูกค้าเปราะ '+frag.length+' ยูนิต</b> (ยอดจากลูกค้าเก่า &lt;15%) — '+truncList_(frag,function(r){return r.u+' ('+r.sh.toFixed(0)+'%)';})));
   el('insDaily').innerHTML=out.length?out.join(''):'<div class="insrow info"><span class="ic">i</span><span>ยังไม่มีสัญญาณเด่นพอจะแจ้งสำหรับวันนี้</span></div>';
 }
 function buildMonthlyInsights(d,i){
@@ -779,9 +790,9 @@ function buildMonthlyInsights(d,i){
   if(i>=1&&C.sales[i]!=null&&C.sales[i-1]!=null&&C.sales[i-1]>0){var mom=(C.sales[i]-C.sales[i-1])/C.sales[i-1]*100;
     if(Math.abs(mom)>=20)out.push(insRow(mom>0?'good':'bad',mom>0?'▲':'▼','<b>ยอดเทียบเดือนก่อน</b> '+baht(C.sales[i])+' '+sPct(mom)));}
   var lossM=(d.unitMonthly||[]).map(function(u){return {unit:u.unit,sales:u.sales[i],profit:u.profit?u.profit[i]:null};}).filter(function(r){return r.sales>0&&r.profit!=null&&r.profit<0;}).sort(function(a,b){return a.profit-b.profit;});
-  if(lossM.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุน '+lossM.length+' ยูนิต</b> — '+lossM.slice(0,3).map(function(r){return r.unit+' ('+baht(r.profit)+')';}).join(', ')+(lossM.length>3?' …':'')));
+  if(lossM.length) out.push(insRow('bad','฿','<b>ขายได้แต่ขาดทุน '+lossM.length+' ยูนิต</b> — '+truncList_(lossM,function(r){return r.unit+' ('+baht(r.profit)+')';})));
   var fragM=(d.unitMonthly||[]).map(function(u){var t=(u.newC?u.newC[i]:0)+(u.oldC?u.oldC[i]:0);return {u:u.unit,sh:t?((u.oldC[i]||0)/t*100):null,t:t};}).filter(function(r){return r.t>0&&r.sh!=null&&r.sh<15;}).sort(function(a,b){return a.sh-b.sh;});
-  if(fragM.length) out.push(insRow('warni','◇','<b>ฐานลูกค้าเปราะ '+fragM.length+' ยูนิต</b> (ยอดจากลูกค้าเก่า &lt;15%) — '+fragM.slice(0,3).map(function(r){return r.u+' ('+r.sh.toFixed(0)+'%)';}).join(', ')+(fragM.length>3?' …':'')));
+  if(fragM.length) out.push(insRow('warni','◇','<b>ฐานลูกค้าเปราะ '+fragM.length+' ยูนิต</b> (ยอดจากลูกค้าเก่า &lt;15%) — '+truncList_(fragM,function(r){return r.u+' ('+r.sh.toFixed(0)+'%)';})));
   el('insMonthly').innerHTML=out.length?out.join(''):'<div class="insrow info"><span class="ic">i</span><span>ยังไม่มีสัญญาณเด่นพอจะแจ้งสำหรับเดือนนี้</span></div>';
 }
 
@@ -840,24 +851,22 @@ function renderYearly(d){
 function renderUnitFull(bodyId,rows){
   rows=(rows||[]).filter(function(r){return (r.sales&&r.sales!==0)||(r.ad&&r.ad!==0);})
     .slice().sort(function(a,b){return String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true,sensitivity:'base'});});
-  if(!rows.length){el(bodyId).innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูล</td></tr>';return;}
+  if(!rows.length){el(bodyId).innerHTML='<tr><td colspan="13" style="color:var(--faint);text-align:left">ไม่มีข้อมูล</td></tr>';return;}
   function dash(v,fn){return (v==null||isNaN(v))?'—':fn(v);}
   el(bodyId).innerHTML=rows.map(function(r){
     return '<tr><td>'+r.unit+'</td>'
       +'<td class="num">'+baht(r.sales)+'</td>'
-      +'<td class="num">'+dash(r.orders,function(v){return int0(v);})+'</td>'
-      +'<td class="num">'+dash(r.ordersN,function(v){return int0(v);})+'</td>'
-      +'<td class="num">'+dash(r.ordersO,function(v){return int0(v);})+'</td>'
+      +'<td class="num">'+baht(r.newC)+'</td>'
+      +'<td class="num">'+baht(r.oldC)+'</td>'
       +'<td class="num">'+dash(r.repeatPct,function(v){return v.toFixed(1)+'%';})+'</td>'
+      +'<td class="num">'+dash(r.closeNew,function(v){return cspan(v.toFixed(1)+'%','close',v);})+'</td>'
+      +'<td class="num">'+dash(r.aov,function(v){return baht(v);})+'</td>'
       +'<td class="num">'+baht(r.ad)+'</td>'
-      +'<td class="num">'+dash(r.adPct,function(v){return cspan(v.toFixed(1)+'%','ad_pct',v);})+'</td>'
+      +'<td class="num">'+dash(r.costInbox,function(v){return cspan(baht(v),'cost_inbox',v);})+'</td>'
+      +'<td class="num">'+dash(r.roasNew,function(v){return cspan(v.toFixed(2),'roas',v);})+'</td>'
+      +'<td class="num">'+dash(r.roasAll,function(v){return cspan(v.toFixed(2),'roas',v);})+'</td>'
       +'<td class="num" style="font-weight:600;color:'+((r.profit!=null&&r.profit<0)?'#ff0000':'var(--jade-deep)')+'">'+baht(r.profit)+'</td>'
       +'<td class="num">'+dash(r.margin,function(v){return cspan(v.toFixed(1)+'%','margin',v);})+'</td>'
-      +'<td class="num">'+dash(r.costNew,function(v){return baht(v);})+'</td>'
-      +'<td class="num">'+dash(r.aov,function(v){return baht(v);})+'</td>'
-      +'<td class="num">'+dash(r.costInbox,function(v){return cspan(baht(v),'cost_inbox',v);})+'</td>'
-      +'<td class="num">'+dash(r.roasAll,function(v){return cspan(v.toFixed(2),'roas',v);})+'</td>'
-      +'<td class="num">'+dash(r.closeNew,function(v){return cspan(v.toFixed(1)+'%','close',v);})+'</td>'
       +'</tr>';
   }).join('');
 }

@@ -49,13 +49,21 @@ UNIT_SOURCE_SHEET_ID = "1ErfvM4yYMXz7fp1iUaYh7KF9hvu6vwEj6Svo_SmTQ_c"
 
 # ชื่อ tab ต่อเพจของยูนิตนี้ (ยืนยันจริงจาก --discover เมื่อ 8/8/2569 — มี 6 เพจ)
 UNIT_PAGE_TABS = [
-    "Ha Yeon-ฮายอง ครีมโสมเกาหลี",              # active (P1, เบลล์)
+    "Ha Yeon-ฮายอง ครีมโสมเกาหลี",
     "Ha-Yeon ครีมโสมสูตรนำเข้าจากเกาหลี",
     "Ha Yeon - ครีมโสมลดฝ้า",                    # active (P3, เบลล์)
-    "เพจHa Yeon ครีมฮายอง จากเกาหลี",
+    "เพจHa Yeon ครีมฮายอง จากเกาหลี",             # active (P1, เบลล์)
     "เพจ ผิวสวยด้วยครีมฮายอง",
     "เพจHa Yeon ครีมโสมเกาหลี สูตรสลายฝ้า ",
 ]
+
+# ชื่อ tab กับชื่อเพจใน master catalog สะกดไม่ตรงกัน (catalog มี "[P1] " นำหน้า, บาง tab มี
+# "เพจ" นำหน้า, บางคำเว้นวรรค/ขีดไม่เหมือนกัน) จับคู่แบบ fuzzy string ไม่ปลอดภัย
+# ต้องระบุคู่ที่ตรงกันจริงด้วยมือแทน — ยืนยันแล้วว่า U4 มี 2 เพจ active ตรงกับ 2 tab นี้
+TAB_TO_CATALOG_PAGE = {
+    "เพจHa Yeon ครีมฮายอง จากเกาหลี": "[P1] Ha Yeon ครีมฮายอง จากเกาหลี",
+    "Ha Yeon - ครีมโสมลดฝ้า": "[P3] Ha Yeon - ครีมโสมลดฝ้า",
+}
 
 # Staging Sheet ปลายทาง (สร้างไฟล์ Google Sheet เปล่าไว้ก่อน แล้วแปะ ID ที่นี่)
 STAGING_SHEET_ID = "1Jd5jsYoslIpbOtZwQ-skrXir7DIIY1xmRq9jH7htskk"
@@ -258,7 +266,8 @@ def main():
         all_rows += parse_page_tab(ws, tab_name, *mapping)
 
     for r in all_rows:
-        info = u4_pages.get(r["page"], {})
+        catalog_name = TAB_TO_CATALOG_PAGE.get(r["page"])
+        info = u4_pages.get(catalog_name, {}) if catalog_name else {}
         r["admin"] = ", ".join(info.get("admins", []))
         r["active"] = "active" if info else "inactive"
 

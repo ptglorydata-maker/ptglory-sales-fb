@@ -13,9 +13,14 @@ ETL: ดึงข้อมูลยอดขายรายเพจ ของ�
 - สคริปต์นี้ join ทุกอย่างเข้าด้วยกัน แล้วเขียนผลลัพธ์แบบ 1 แถว = 1 วัน/1 เพจ ลง Staging Sheet
   (รองรับหลายยูนิตในไฟล์ Staging เดียวกัน — sync ทีละยูนิตจะแทนที่เฉพาะแถวของยูนิตนั้น)
 
-รองรับยูนิตที่ผ่านการยืนยันคอลัมน์แล้วเท่านั้น (ดู UNITS ด้านล่าง) ยูนิตใหม่ต้องเพิ่ม
-entry ใน UNITS ก่อน โดยเริ่มจาก --discover เสมอเพื่อยืนยันชื่อ tab จริง + ตำแหน่งคอลัมน์
-เพราะแต่ละไฟล์ต้นทางเป็น Google Sheet ที่มนุษย์จัดหน้าด้วยมือ ผังอาจไม่เหมือนกันทุกยูนิต
+สำคัญ: ตำแหน่งคอลัมน์ยอดขาย/ออเดอร์/ค่าแอด/ROAS **ไม่ hardcode** เป็นเลขคอลัมน์คงที่
+เพราะพิสูจน์แล้วว่าใช้ไม่ได้จริง — ถ้าเพจไหนมีแอดมินเพิ่ม/ลดระหว่างปี ส่วนหัวตารางของบล็อกเดือน
+นั้นจะกว้าง/แคบกว่าบล็อกอื่น ทำให้ตำแหน่งคอลัมน์ของ ค่าแอด/ROAS ขยับไปคนละที่ในแต่ละเดือน
+สคริปต์นี้จึงค้นหาตำแหน่งคอลัมน์จากข้อความหัวตาราง ("ยอดขาย", "Order", "ค่าแอด", "ROAS\nรวม")
+**ใหม่ทุกบล็อกเดือน** แทน จึงทนต่อการเปลี่ยนแปลงผังระหว่างปีได้
+
+รองรับยูนิตที่เพิ่ม entry ใน UNITS แล้วเท่านั้น ยูนิตใหม่ต้องรัน --discover ก่อนเสมอ
+เพื่อยืนยันชื่อ tab จริง (ไม่ต้องยืนยันตำแหน่งคอลัมน์อีกต่อไป เพราะหาอัตโนมัติแล้ว)
 
 การติดตั้ง:
   pip install -r requirements.txt
@@ -48,8 +53,7 @@ STAGING_SHEET_ID = "1Jd5jsYoslIpbOtZwQ-skrXir7DIIY1xmRq9jH7htskk"
 STAGING_TAB = "staging_รายเพจ"
 STAGING_HEADER = ["date", "unit", "page", "admin", "active", "sales", "orders", "ad_spend", "roas"]
 
-# ตั้งค่าต่อยูนิต — เพิ่ม entry ใหม่หลังยืนยันด้วย --discover แล้วเท่านั้น
-# page_column_map: {ชื่อ tab: (col_sales, col_orders, col_ad_spend, col_roas)} นับจาก 1 (A=1)
+# ตั้งค่าต่อยูนิต — เพิ่ม entry ใหม่หลังยืนยันชื่อ tab ด้วย --discover
 # tab_to_catalog: {ชื่อ tab: ชื่อเพจตรงตัวใน master catalog} เฉพาะเพจที่ยัง active เท่านั้นก็พอ
 UNITS = {
     "U4": {
@@ -66,24 +70,13 @@ UNITS = {
             "เพจHa Yeon ครีมฮายอง จากเกาหลี": "[P1] Ha Yeon ครีมฮายอง จากเกาหลี",
             "Ha Yeon - ครีมโสมลดฝ้า": "[P3] Ha Yeon - ครีมโสมลดฝ้า",
         },
-        # ยืนยันครบทั้ง 6 tab จาก --discover เมื่อ 8/8/2569: col2=ยอดขายรวมเพจ, col5=Order รวม,
-        # col54=ค่าแอด, col60=ROAS รวม (แถวหัวตาราง 5 ชั้น, ข้อมูลเริ่มถัดจากนั้น) —
-        # ผังคอลัมน์เหมือนกันทุกเพจของ U4 (คงเป็นเพราะ copy จากแม่แบบเดียวกัน)
-        "page_column_map": {
-            "Ha Yeon-ฮายอง ครีมโสมเกาหลี": (2, 5, 54, 60),
-            "Ha-Yeon ครีมโสมสูตรนำเข้าจากเกาหลี": (2, 5, 54, 60),
-            "Ha Yeon - ครีมโสมลดฝ้า": (2, 5, 54, 60),
-            "เพจHa Yeon ครีมฮายอง จากเกาหลี": (2, 5, 54, 60),
-            "เพจ ผิวสวยด้วยครีมฮายอง": (2, 5, 54, 60),
-            "เพจHa Yeon ครีมโสมเกาหลี สูตรสลายฝ้า ": (2, 5, 54, 60),
-        },
     },
     "U5": {
         "source_sheet_id": "1ReGkQWnacQG5n3prG12ID0QVbxBYqOVGe5mlqcE_dto",
         # tab เพจที่มีจริง 11 อัน แต่ตรงกับ master catalog (ยัง active) แค่ 4 อัน (P2,P3,P5,P6)
         # ที่เหลือ 7 อัน (สมุนไพรล้างน้ำตาลในเลือด, ดีวาวา-จินเซงบาลานซ์พลัส ฯลฯ) เป็นเพจเก่า
         # ที่เลิกใช้แล้ว ไม่มีใน catalog ปัจจุบัน — เติมเข้า page_tabs ทีหลังถ้าต้องการข้อมูลย้อนหลัง
-        # ของเพจเหล่านั้นด้วย ตอนนี้ยังไม่ได้ discover คอลัมน์ของ 7 อันนั้น
+        # ของเพจเหล่านั้นด้วย
         "page_tabs": [
             "DWAWA Ginseng วิตามินบำรุงสุขภาพสูตรใหม่",   # active (P2)
             "DWAWA-Ginseng บาลานซ์พลัส",                # active (P3)
@@ -95,14 +88,6 @@ UNITS = {
             "DWAWA-Ginseng บาลานซ์พลัส": "[P3] DWAWA-Ginseng บาลานซ์พลัส",
             "Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1": "[P5] Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1",
             "DWAWA - Ginseng สูตรใหม่ลดน้ำตาลในเลือด": "[P6] DWAWA - Ginseng สูตรใหม่ลดน้ำตาลในเลือด",
-        },
-        # ยืนยันจาก --discover เมื่อ 8/8/2569: เหมือน U4 เป๊ะ (col2/5/54/60) แต่ tab นี้กว้างกว่า
-        # (133-147 คอลัมน์ vs 93 ของ U4) เพราะมีคอลัมน์เผื่อว่างท้ายตาราง ไม่ได้ใช้งานจริง
-        "page_column_map": {
-            "DWAWA Ginseng วิตามินบำรุงสุขภาพสูตรใหม่": (2, 5, 54, 60),
-            "DWAWA-Ginseng บาลานซ์พลัส": (2, 5, 54, 60),
-            "Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1": (2, 5, 54, 60),
-            "DWAWA - Ginseng สูตรใหม่ลดน้ำตาลในเลือด": (2, 5, 54, 60),
         },
     },
 }
@@ -156,8 +141,9 @@ def discover(client, unit_source_sheet_id, unit_label, tab_name=None):
 
     blocks = find_date_blocks(values)
     print(f"=== พบหัวตาราง 'วันที่' ทั้งหมด {len(blocks)} จุดใน '{tab_name}' (แต่ละจุด = 1 บล็อกเดือน) ===")
-    for row_num, cols in blocks:
-        print(f"row {row_num}: คอลัมน์ {cols}  ->  {values[row_num - 1][:15]}")
+    for row_num, _cols in blocks:
+        detected = find_metric_columns(values, row_num)
+        print(f"row {row_num}: {values[row_num - 1][:15]}  ->  คอลัมน์ที่หาเจอ: {detected}")
 
     if not blocks:
         print("ไม่พบคำว่า 'วันที่' เลย — โครงสร้างอาจต่างจากที่คาด ต้องเปิดไฟล์ดูเอง")
@@ -202,15 +188,42 @@ def load_master_catalog(client):
     return pages
 
 
-def parse_page_tab(ws, unit_name, page_name, col_sales, col_orders, col_ad, col_roas):
+def find_metric_columns(values, header_row):
+    """หาตำแหน่งคอลัมน์ยอดขายรวม/ออเดอร์รวม/ค่าแอด/ROAS รวม จากข้อความหัวตารางของบล็อกเดือน
+    นี้เอง (ไม่ใช่เลขคอลัมน์คงที่) เพราะจำนวนคอลัมน์ต่างกันได้ถ้ามีแอดมินเพิ่ม/ลดระหว่างปี
+
+    โครงสร้างที่พบจริง (ยืนยันจากหลายเพจ/หลายยูนิต): แถวหัวตาราง 5 ชั้นเริ่มที่ header_row
+      แถว header_row   = banner รวม (มี "ROAS\\nรวม" อยู่ในนี้)
+      แถว header_row+2 = ชื่อเมตริกย่อย (มี "ยอดขาย" ตัวแรก = รวมทั้งเพจ, "Order" (อังกฤษ) =
+                          ออเดอร์รวมทั้งเพจ, "ค่าแอด" = ค่าแอดรวม) ตัวอื่นที่ซ้ำเป็นของรายแอดมิน
+    """
+    banner_row = values[header_row - 1] if header_row - 1 < len(values) else []
+    label_row = values[header_row + 1] if header_row + 1 < len(values) else []
+
+    def first_col(row, text):
+        for i, cell_val in enumerate(row):
+            if cell_val.strip() == text:
+                return i + 1  # 1-based column
+        return None
+
+    return {
+        "sales": first_col(label_row, "ยอดขาย"),
+        "orders": first_col(label_row, "Order"),
+        "ad_spend": first_col(label_row, "ค่าแอด"),
+        "roas": first_col(banner_row, "ROAS\nรวม"),
+    }
+
+
+def parse_page_tab(ws, unit_name, page_name):
     """Unpivot 1 tab (1 เพจ) ทุกบล็อกเดือนที่เจอ -> list of dict (long format)
-    คอลัมน์นับจาก 1 (A=1) ใช้ตำแหน่งเดียวกันทุกบล็อกเดือน (สมมติฐานที่ต้องยืนยันด้วย --discover
-    ว่าแต่ละเดือนวางคอลัมน์ตรงกันจริง — ถ้าไม่ตรง ต้องแยก map ต่อบล็อกแทน)"""
+    หาตำแหน่งคอลัมน์ใหม่ทุกบล็อกเดือน (ดู find_metric_columns) แทนตำแหน่งคงที่"""
     values = ws.get_all_values()
     blocks = find_date_blocks(values)
     out = []
 
     def cell(row, col):
+        if col is None:
+            return ""
         idx = col - 1
         return row[idx].replace(",", "").strip() if idx < len(row) else ""
 
@@ -221,7 +234,11 @@ def parse_page_tab(ws, unit_name, page_name, col_sales, col_orders, col_ad, col_
             return None
 
     for bi, (header_row, _cols) in enumerate(blocks):
-        data_start = header_row  # แถวข้อมูลเริ่มถัดจากแถวหัวตารางของบล็อกนี้
+        cols = find_metric_columns(values, header_row)
+        if not all(cols.values()):
+            print(f"  [เตือน] '{page_name}' บล็อกที่ขึ้นต้นแถว {header_row}: หาคอลัมน์ไม่ครบ {cols} — ข้ามบล็อกนี้")
+            continue
+        data_start = header_row  # แถวข้อมูลเริ่มถัดจากแถวหัวตารางของบล็อกนี้ (แถวหัวถูกข้ามเพราะ parse วันที่ไม่ผ่าน)
         data_end = blocks[bi + 1][0] - 1 if bi + 1 < len(blocks) else len(values)
         for row in values[data_start:data_end]:
             d = parse_thai_short_date(row[0] if row else "")
@@ -231,10 +248,10 @@ def parse_page_tab(ws, unit_name, page_name, col_sales, col_orders, col_ad, col_
                 "date": d.isoformat(),
                 "unit": unit_name,
                 "page": page_name,
-                "sales": num(cell(row, col_sales)),
-                "orders": num(cell(row, col_orders)),
-                "ad_spend": num(cell(row, col_ad)),
-                "roas": num(cell(row, col_roas)),
+                "sales": num(cell(row, cols["sales"])),
+                "orders": num(cell(row, cols["orders"])),
+                "ad_spend": num(cell(row, cols["ad_spend"])),
+                "roas": num(cell(row, cols["roas"])),
             })
     return out
 
@@ -271,20 +288,15 @@ def sync_unit(read_client, write_client, unit_name, pages, existing_rows):
     for p, info in unit_pages.items():
         print(f"  - {p}  (แอดมิน: {', '.join(info['admins']) or '-'})")
 
-    page_column_map = cfg["page_column_map"]
-    if not page_column_map:
-        print(f"[ยังไม่ทำ] {unit_name} ยังไม่ได้ map คอลัมน์ยอดขายของแต่ละ tab เพจ — ข้าม")
+    if not cfg["page_tabs"]:
+        print(f"[ยังไม่ทำ] {unit_name} ยังไม่ได้ระบุ page_tabs — ข้าม")
         return existing_rows
 
     sh = read_client.open_by_key(cfg["source_sheet_id"])
     unit_rows = []
     for tab_name in cfg["page_tabs"]:
-        mapping = page_column_map.get(tab_name)
-        if not mapping:
-            print(f"ข้าม '{tab_name}' — ยังไม่มี column mapping")
-            continue
         ws = sh.worksheet(tab_name)
-        unit_rows += parse_page_tab(ws, unit_name, tab_name, *mapping)
+        unit_rows += parse_page_tab(ws, unit_name, tab_name)
 
     tab_to_catalog = cfg["tab_to_catalog"]
     for r in unit_rows:

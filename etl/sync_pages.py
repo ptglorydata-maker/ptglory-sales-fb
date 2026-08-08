@@ -87,18 +87,20 @@ UNITS = {
         "page_tabs": [
             "DWAWA Ginseng วิตามินบำรุงสุขภาพสูตรใหม่",   # active (P2)
             "DWAWA-Ginseng บาลานซ์พลัส",                # active (P3)
-            # "Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1",       # active (P5) — ยังไม่ discover
+            "Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1",       # active (P5)
             # "DWAWA - Ginseng สูตรใหม่ลดน้ำตาลในเลือด",   # active (P6) — ยังไม่ discover
         ],
         "tab_to_catalog": {
             "DWAWA Ginseng วิตามินบำรุงสุขภาพสูตรใหม่": "[P2] DWAWA Ginseng วิตามินบำรุงสุขภาพสูตรใหม่",
             "DWAWA-Ginseng บาลานซ์พลัส": "[P3] DWAWA-Ginseng บาลานซ์พลัส",
+            "Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1": "[P5] Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1",
         },
         # ยืนยันจาก --discover เมื่อ 8/8/2569: เหมือน U4 เป๊ะ (col2/5/54/60) แต่ tab นี้กว้างกว่า
         # (133-147 คอลัมน์ vs 93 ของ U4) เพราะมีคอลัมน์เผื่อว่างท้ายตาราง ไม่ได้ใช้งานจริง
         "page_column_map": {
             "DWAWA Ginseng วิตามินบำรุงสุขภาพสูตรใหม่": (2, 5, 54, 60),
             "DWAWA-Ginseng บาลานซ์พลัส": (2, 5, 54, 60),
+            "Dwawa Ginseng - ดูแลสุขภาพสูตร 3in1": (2, 5, 54, 60),
         },
     },
 }

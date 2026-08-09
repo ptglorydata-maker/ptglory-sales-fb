@@ -194,8 +194,13 @@ def find_metric_columns(values, header_row):
 
     โครงสร้างที่พบจริง (ยืนยันจากหลายเพจ/หลายยูนิต): แถวหัวตาราง 5 ชั้นเริ่มที่ header_row
       แถว header_row   = banner รวม (มี "ROAS\\nรวม" อยู่ในนี้)
-      แถว header_row+2 = ชื่อเมตริกย่อย (มี "ยอดขาย" ตัวแรก = รวมทั้งเพจ, "Order" (อังกฤษ) =
-                          ออเดอร์รวมทั้งเพจ, "ค่าแอด" = ค่าแอดรวม) ตัวอื่นที่ซ้ำเป็นของรายแอดมิน
+      แถว header_row+2 = ชื่อเมตริกย่อย (มี "ค่าแอด" = ค่าแอดรวม)
+
+    ยืนยันจากไฟล์จริง U5 (8/8/2569): ตั้งแต่เดือน 7/2569 เป็นต้นไป บางเพจเปลี่ยนป้ายกำกับ
+    ยอดขาย/ออเดอร์รวมจาก "ยอดขาย"/"Order" เป็น "ยอดรวม"/"Order รวม" (คอลัมน์ขยับไปไกลลิบ
+    เพราะมีตารางสรุปใหม่แทรกเพิ่ม) แต่ค่าแอด/ROAS รวม ยังอยู่ตำแหน่งเดิม — ต้องลองหาป้ายแบบใหม่
+    ก่อน แล้วค่อย fallback ไปป้ายแบบเก่าถ้าไม่เจอ (บล็อกเก่าไม่มีคำว่า "ยอดรวม"/"Order รวม" เลย
+    จึงปลอดภัยที่จะลองก่อนโดยไม่กระทบบล็อกที่เป็นแบบเก่า)
     """
     banner_row = values[header_row - 1] if header_row - 1 < len(values) else []
     label_row = values[header_row + 1] if header_row + 1 < len(values) else []
@@ -207,8 +212,8 @@ def find_metric_columns(values, header_row):
         return None
 
     return {
-        "sales": first_col(label_row, "ยอดขาย"),
-        "orders": first_col(label_row, "Order"),
+        "sales": first_col(label_row, "ยอดรวม") or first_col(label_row, "ยอดขาย"),
+        "orders": first_col(label_row, "Order รวม") or first_col(label_row, "Order"),
         "ad_spend": first_col(label_row, "ค่าแอด"),
         "roas": first_col(banner_row, "ROAS\nรวม"),
     }

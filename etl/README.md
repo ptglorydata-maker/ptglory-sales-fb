@@ -103,6 +103,14 @@
 
 รัน `python sync_pages.py --all` เพื่อ sync ทุกยูนิตที่มี config ครบแล้วในครั้งเดียว
 
+## ระวัง: ทีมอาจเปลี่ยนชื่อ tab ในไฟล์ต้นทางได้ตลอดเวลา
+
+เจอจริงกับ U4 (8/8/2569): มีคนเปลี่ยนชื่อ tab จาก `"Ha Yeon - ครีมโสมลดฝ้า"` เป็น
+`"P3 Ha Yeon - ครีมโสมลดฝ้า"` ทำให้ `python sync_pages.py --unit/--all` พังด้วย
+`gspread.exceptions.WorksheetNotFound` ถ้าเจอ error นี้ ให้รัน `--discover <UNIT>` ใหม่
+เพื่อดูชื่อ tab ปัจจุบัน แล้วแก้ `page_tabs`/`tab_to_catalog` ของยูนิตนั้นให้ตรง — ไม่ใช่บั๊ก
+ของสคริปต์ แค่ไฟล์ต้นทางเปลี่ยนโดยไม่แจ้งล่วงหน้า
+
 ## ขั้นต่อไป
 - เพิ่ม mode ใหม่ในฝั่ง Cloudflare Worker (เช่น `mode=pages&unit=U4`) อ่านจาก Staging Sheet
 - เพิ่ม section "รายเพจ" ในหน้า dashboard (`index.html`) แสดงเพจ active/inactive ต่อยูนิต

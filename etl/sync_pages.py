@@ -1,6 +1,10 @@
 """
-ETL: ดึงข้อมูลยอดขายรายเพจ ของแต่ละยูนิต ย้อนหลังตั้งแต่ ม.ค.69 ถึงปัจจุบัน
-แล้ว normalize เป็น long-format เขียนลง Staging Sheet ให้ dashboard อ่านต่อได้
+ETL: ดึงข้อมูลรายเพจ ของแต่ละยูนิต ย้อนหลังตั้งแต่ ม.ค.69 ถึงปัจจุบัน แล้ว normalize เป็น
+long-format เขียนลง Staging Sheet ให้ dashboard อ่านต่อได้
+
+คอลัมน์ที่ดึง (ดู STAGING_HEADER): งบที่ใช้ไป, รวมคนทักใหม่(ฝั่งแอด), คนทักใหม่(ฝั่งแอดมิน),
+ต้นทุนทัก, ยอดขายรวม/ใหม่/เก่า, ออเดอร์รวม/ใหม่/เก่า, %ปิดใหม่, %ค่า ADS, ROAS ใหม่/รวม,
+%ERROR รายเพจ — ครบตามที่ขอ 8/8/2569 (ก่อนหน้านี้ดึงแค่ ยอดขายรวม/ออเดอร์รวม/ค่าแอด/ROAS รวม)
 
 ทำไมต้องมีสคริปต์นี้:
 - Master catalog (test-รายงานเพจ FB) บอกว่า "เพจไหน อยู่ยูนิตไหน ใครดูแล" แต่ไม่มีตัวเลขยอดขาย
@@ -51,7 +55,24 @@ MASTER_CATALOG_TAB = "ชื่อเพจ"  # ชื่อ tab ในไฟล
 
 STAGING_SHEET_ID = "1Jd5jsYoslIpbOtZwQ-skrXir7DIIY1xmRq9jH7htskk"
 STAGING_TAB = "staging_รายเพจ"
-STAGING_HEADER = ["date", "unit", "page", "admin", "active", "sales", "orders", "ad_spend", "roas"]
+STAGING_HEADER = [
+    "date", "unit", "page", "admin", "active",
+    "ad_spend",          # งบที่ใช้ไป
+    "chats_ads",         # รวมคนทักใหม่ (ฝั่งแอด)
+    "chats_admin",       # คนทักใหม่ (ฝั่งแอดมิน)
+    "cost_per_chat",     # ต้นทุนทัก
+    "sales_total",       # ยอดขายรวม
+    "sales_new",         # ยอดขายใหม่
+    "sales_old",         # ยอดขายเก่า
+    "orders_total",      # ออเดอร์รวม
+    "orders_new",        # ออเดอร์ใหม่
+    "orders_old",        # ออเดอร์เก่า
+    "close_rate_new",    # % ปิดใหม่
+    "ads_pct",           # % ค่า ADS
+    "roas_new",          # ROAS ใหม่
+    "roas_total",        # ROAS รวม
+    "error_pct",         # % ERROR รายเพจ
+]
 
 # ตั้งค่าต่อยูนิต — เพิ่ม entry ใหม่หลังยืนยันชื่อ tab ด้วย --discover
 # tab_to_catalog: {ชื่อ tab: ชื่อเพจตรงตัวใน master catalog} เฉพาะเพจที่ยัง active เท่านั้นก็พอ
@@ -189,33 +210,69 @@ def load_master_catalog(client):
 
 
 def find_metric_columns(values, header_row):
-    """หาตำแหน่งคอลัมน์ยอดขายรวม/ออเดอร์รวม/ค่าแอด/ROAS รวม จากข้อความหัวตารางของบล็อกเดือน
-    นี้เอง (ไม่ใช่เลขคอลัมน์คงที่) เพราะจำนวนคอลัมน์ต่างกันได้ถ้ามีแอดมินเพิ่ม/ลดระหว่างปี
+    """หาตำแหน่งคอลัมน์ของทุกเมตริกที่ต้องการ จากข้อความหัวตารางของบล็อกเดือนนี้เอง
+    (ไม่ใช่เลขคอลัมน์คงที่) เพราะจำนวนคอลัมน์ต่างกันได้ถ้ามีแอดมินเพิ่ม/ลดระหว่างปี
 
     โครงสร้างที่พบจริง (ยืนยันจากหลายเพจ/หลายยูนิต): แถวหัวตาราง 5 ชั้นเริ่มที่ header_row
-      แถว header_row   = banner รวม (มี "ROAS\\nรวม" อยู่ในนี้)
-      แถว header_row+2 = ชื่อเมตริกย่อย (มี "ค่าแอด" = ค่าแอดรวม)
+      แถว header_row   (banner_row) = แถวรวม มี "ROAS\\nใหม่"/"ROAS\\nรวม"/"%ปิดใหม่"/"% Error"
+      แถว header_row+1 (group_row)  = ชื่อกลุ่ม เช่น "ลูกค้าใหม่(เพจ)"/"ลูกค้าเก่า.../"รวมคนเข้าจริง"
+      แถว header_row+2 (label_row)  = ชื่อเมตริกย่อย "ยอดขาย"/"ออเดอร์"/"ค่าแอด"/"สนทนารายใหม่"
 
     ยืนยันจากไฟล์จริง U5 (8/8/2569): ตั้งแต่เดือน 7/2569 เป็นต้นไป บางเพจเปลี่ยนป้ายกำกับ
     ยอดขาย/ออเดอร์รวมจาก "ยอดขาย"/"Order" เป็น "ยอดรวม"/"Order รวม" (คอลัมน์ขยับไปไกลลิบ
-    เพราะมีตารางสรุปใหม่แทรกเพิ่ม) แต่ค่าแอด/ROAS รวม ยังอยู่ตำแหน่งเดิม — ต้องลองหาป้ายแบบใหม่
-    ก่อน แล้วค่อย fallback ไปป้ายแบบเก่าถ้าไม่เจอ (บล็อกเก่าไม่มีคำว่า "ยอดรวม"/"Order รวม" เลย
-    จึงปลอดภัยที่จะลองก่อนโดยไม่กระทบบล็อกที่เป็นแบบเก่า)
+    เพราะมีตารางสรุปใหม่แทรกเพิ่ม) แต่ค่าแอด/ROAS/% ต่างๆ ยังอยู่ตำแหน่งเดิม — ลองหาป้ายแบบใหม่
+    ก่อน แล้วค่อย fallback ไปป้ายแบบเก่า (บล็อกเก่าไม่มีคำว่า "ยอดรวม" เลย จึงไม่ชนกัน)
+
+    ยอดขาย/ออเดอร์ "ใหม่"/"เก่า" (แยกลูกค้าใหม่-เก่า) แบบเก่าอยู่ในกลุ่ม "ลูกค้าใหม่(เพจ)"/
+    "ลูกค้าเก่า..." — 2 คอลัมน์แรกของกลุ่มคือยอดรวมของกลุ่มนั้น (ยืนยันจากข้อมูลจริง: วันที่
+    ลูกค้าใหม่ล้วน ยอดในกลุ่ม "ลูกค้าใหม่(เพจ)" เท่ากับยอดขายรวมทั้งวันพอดี) แบบใหม่ (ก.ค.69+)
+    มี "ยอดรวมใหม่"/"Order ใหม่" ให้ตรงๆ แต่ไม่มี "เก่า" แยกไว้ที่ระดับเพจ (มีแต่ระดับแอดมิน)
+    ต้องคำนวณ เก่า = รวม - ใหม่ เอาเองถ้าหาคอลัมน์ตรงๆ ไม่เจอ (ทำใน parse_page_tab)
     """
     banner_row = values[header_row - 1] if header_row - 1 < len(values) else []
+    group_row = values[header_row] if header_row < len(values) else []
     label_row = values[header_row + 1] if header_row + 1 < len(values) else []
 
-    def first_col(row, text):
+    def find_col(row, text):
         for i, cell_val in enumerate(row):
             if cell_val.strip() == text:
                 return i + 1  # 1-based column
         return None
 
+    def find_col_containing(row, substr):
+        for i, cell_val in enumerate(row):
+            if substr in cell_val:
+                return i + 1
+        return None
+
+    def group_total_cols(group_substr):
+        """คืน (คอลัมน์ยอดขาย, คอลัมน์ออเดอร์) ของผลรวมกลุ่ม = 2 คอลัมน์แรกถัดจากจุดเริ่มกลุ่ม"""
+        start = find_col_containing(group_row, group_substr)
+        if not start:
+            return None, None
+        sales_ok = start - 1 < len(label_row) and label_row[start - 1].strip() == "ยอดขาย"
+        orders_ok = start < len(label_row) and label_row[start].strip() == "ออเดอร์"
+        return (start if sales_ok else None, start + 1 if orders_ok else None)
+
+    sales_new_group, orders_new_group = group_total_cols("ลูกค้าใหม่")
+    sales_old_group, orders_old_group = group_total_cols("ลูกค้าเก่า")
+
     return {
-        "sales": first_col(label_row, "ยอดรวม") or first_col(label_row, "ยอดขาย"),
-        "orders": first_col(label_row, "Order รวม") or first_col(label_row, "Order"),
-        "ad_spend": first_col(label_row, "ค่าแอด"),
-        "roas": first_col(banner_row, "ROAS\nรวม"),
+        "sales_total": find_col(label_row, "ยอดรวม") or find_col(label_row, "ยอดขาย"),
+        "sales_new": find_col(label_row, "ยอดรวมใหม่") or sales_new_group,
+        "sales_old": sales_old_group,  # ไม่เจอป้ายแบบใหม่ที่ระดับเพจ ให้คำนวณ รวม-ใหม่ แทนถ้า None
+        "orders_total": find_col(label_row, "Order รวม") or find_col(label_row, "Order"),
+        "orders_new": find_col(label_row, "Order ใหม่") or orders_new_group,
+        "orders_old": orders_old_group,
+        "ad_spend": find_col(label_row, "ค่าแอด"),
+        "cost_per_chat": find_col(label_row, "ต้นทุน\nต่อทัก"),
+        "chats_ads": find_col(label_row, "สนทนารายใหม่"),
+        "chats_admin": find_col(group_row, "รวมคนเข้าจริง"),
+        "close_rate_new": find_col(banner_row, "%ปิดใหม่"),
+        "ads_pct": find_col(label_row, "%ค่าแอดรวม"),
+        "roas_new": find_col(banner_row, "ROAS\nใหม่"),
+        "roas_total": find_col(banner_row, "ROAS\nรวม"),
+        "error_pct": find_col(banner_row, "% Error"),
     }
 
 
@@ -238,10 +295,13 @@ def parse_page_tab(ws, unit_name, page_name):
         except ValueError:
             return None
 
+    # เมตริกที่ต้องเจอเสมอ ถ้าไม่เจอแปลว่าโครงสร้างต่างไปมากจนไม่น่าเชื่อถือ ข้ามบล็อกนั้นไปเลย
+    required = ["sales_total", "orders_total", "ad_spend", "roas_total"]
+
     for bi, (header_row, _cols) in enumerate(blocks):
         cols = find_metric_columns(values, header_row)
-        if not all(cols.values()):
-            print(f"  [เตือน] '{page_name}' บล็อกที่ขึ้นต้นแถว {header_row}: หาคอลัมน์ไม่ครบ {cols} — ข้ามบล็อกนี้")
+        if not all(cols[k] for k in required):
+            print(f"  [เตือน] '{page_name}' บล็อกที่ขึ้นต้นแถว {header_row}: หาคอลัมน์หลักไม่ครบ {cols} — ข้ามบล็อกนี้")
             continue
         data_start = header_row  # แถวข้อมูลเริ่มถัดจากแถวหัวตารางของบล็อกนี้ (แถวหัวถูกข้ามเพราะ parse วันที่ไม่ผ่าน)
         data_end = blocks[bi + 1][0] - 1 if bi + 1 < len(blocks) else len(values)
@@ -249,14 +309,38 @@ def parse_page_tab(ws, unit_name, page_name):
             d = parse_thai_short_date(row[0] if row else "")
             if not d:
                 continue
+
+            sales_total = num(cell(row, cols["sales_total"]))
+            sales_new = num(cell(row, cols["sales_new"]))
+            sales_old = num(cell(row, cols["sales_old"]))
+            if sales_old is None and sales_total is not None and sales_new is not None:
+                sales_old = sales_total - sales_new  # ไม่มีคอลัมน์ "เก่า" ตรงๆ ในบล็อกแบบใหม่ (ก.ค.69+)
+
+            orders_total = num(cell(row, cols["orders_total"]))
+            orders_new = num(cell(row, cols["orders_new"]))
+            orders_old = num(cell(row, cols["orders_old"]))
+            if orders_old is None and orders_total is not None and orders_new is not None:
+                orders_old = orders_total - orders_new
+
             out.append({
                 "date": d.isoformat(),
                 "unit": unit_name,
                 "page": page_name,
-                "sales": num(cell(row, cols["sales"])),
-                "orders": num(cell(row, cols["orders"])),
                 "ad_spend": num(cell(row, cols["ad_spend"])),
-                "roas": num(cell(row, cols["roas"])),
+                "chats_ads": num(cell(row, cols["chats_ads"])),
+                "chats_admin": num(cell(row, cols["chats_admin"])),
+                "cost_per_chat": num(cell(row, cols["cost_per_chat"])),
+                "sales_total": sales_total,
+                "sales_new": sales_new,
+                "sales_old": sales_old,
+                "orders_total": orders_total,
+                "orders_new": orders_new,
+                "orders_old": orders_old,
+                "close_rate_new": cell(row, cols["close_rate_new"]),
+                "ads_pct": cell(row, cols["ads_pct"]),
+                "roas_new": num(cell(row, cols["roas_new"])),
+                "roas_total": num(cell(row, cols["roas_total"])),
+                "error_pct": cell(row, cols["error_pct"]),
             })
     return out
 

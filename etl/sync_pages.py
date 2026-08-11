@@ -272,8 +272,12 @@ def find_metric_columns(values, header_row):
         orders_ok = start < len(label_row) and label_row[start].strip() == "ออเดอร์"
         return (start if sales_ok else None, start + 1 if orders_ok else None)
 
-    sales_new_group, orders_new_group = group_total_cols("ลูกค้าใหม่")
-    sales_old_group, orders_old_group = group_total_cols("ลูกค้าเก่า")
+    # ใช้ substring สั้นๆ ("ใหม่"/"เก่า") แทนคำเต็ม เพราะเจอไฟล์จริงสะกดผิด เช่น
+    # "ลูกค่าเก่า(เพจ)" (ค่า ไม่ใช่ ค้า) — สั้นแต่ไม่ชนกับข้อความอื่นใน group_row เพราะ
+    # แถวนี้มีแค่ชื่อกลุ่ม (ลูกค้าใหม่.../ลูกค้าเก่า.../Line OA/รวมคนเข้าจริง) ไม่มี "ใหม่"/"เก่า"
+    # ปนอยู่ในชื่อกลุ่มอื่น
+    sales_new_group, orders_new_group = group_total_cols("ใหม่")
+    sales_old_group, orders_old_group = group_total_cols("เก่า")
 
     return {
         "sales_total": find_col(label_row, "ยอดรวม") or find_col(label_row, "ยอดขาย"),
@@ -289,7 +293,8 @@ def find_metric_columns(values, header_row):
         "close_rate_new": find_col(banner_row, "%ปิดใหม่"),
         "ads_pct": find_col(label_row, "%ค่าแอดรวม"),
         "roas_new": find_col(banner_row, "ROAS\nใหม่"),
-        "roas_total": find_col(banner_row, "ROAS\nรวม"),
+        # บางเพจไม่แยก "ใหม่"/"รวม" มีแค่ ROAS รวมตัวเดียวเรียกว่า "ROAS เฉพาะเพจ" แทน
+        "roas_total": find_col(banner_row, "ROAS\nรวม") or find_col(banner_row, "ROAS\nเฉพาะเพจ"),
         "error_pct": find_col(banner_row, "% Error"),
     }
 

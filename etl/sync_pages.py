@@ -131,11 +131,19 @@ UNITS = {
     },
     "U7": {
         "source_sheet_id": "1sar_VxuTfoFXTlmX9ntnKrJPxgO_ecWnFK2cqoZXclY",
-        # master catalog มี U7 3 เพจ: [P1] D'Lellise Probiovita-น้ำชงโพรไบโอติก เพื่อผู้หญิง,
-        # [P2] D'lellise ProbioVita น้ำชงโพรไบโอติกส์ เพื่อสุขภาพผู้หญิง,
-        # [P3] D'lellise ProbioVita-โพรไบโอติกส์ ดูเเลภายในสตรี (แอดมิน: ปุยฝ้าย, ตะวัน, โฟล์ค)
-        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U7
-        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+        # ไฟล์มี tab เพจจริง 13 อัน ตรงกับ master catalog (ยัง active) แค่ 3 อัน (P1,P2,P3)
+        # ที่เหลือเป็นเพจเก่าที่เลิกใช้แล้ว ไม่มีใน catalog — สะกดชื่อ tab ไม่ตรงกับ catalog เป๊ะ
+        # (อะพอสทรอฟีคนละตัวกัน ' vs ’, ตัวสะกดเพี้ยนเล็กน้อย) ต้อง map มือ
+        "page_tabs": [
+            "D'Lellise Probiovita-น้ำชงโพรไบโอติก เพื่อผู้หญิง",              # active (P1)
+            "D’lellise ProbioVita น้ำชงโพรไบโอติกส์ เพื่อสุขภาพผู้หญิง",       # active (P2)
+            "D'Lellise Probiovita-โพรไบโอติกส์ ดูแลภายในสตรี",               # active (P3)
+        ],
+        "tab_to_catalog": {
+            "D'Lellise Probiovita-น้ำชงโพรไบโอติก เพื่อผู้หญิง": "[P1] D'Lellise Probiovita-น้ำชงโพรไบโอติก เพื่อผู้หญิง",
+            "D’lellise ProbioVita น้ำชงโพรไบโอติกส์ เพื่อสุขภาพผู้หญิง": "[P2] D'lellise ProbioVita น้ำชงโพรไบโอติกส์ เพื่อสุขภาพผู้หญิง",
+            "D'Lellise Probiovita-โพรไบโอติกส์ ดูแลภายในสตรี": "[P3] D'lellise ProbioVita-โพรไบโอติกส์ ดูเเลภายในสตรี",
+        },
     },
 }
 # ====================================================

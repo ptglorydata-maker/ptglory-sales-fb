@@ -111,6 +111,11 @@ UNITS = {
             "DWAWA - Ginseng สูตรใหม่ลดน้ำตาลในเลือด": "[P6] DWAWA - Ginseng สูตรใหม่ลดน้ำตาลในเลือด",
         },
     },
+    "U6": {
+        "source_sheet_id": "1yyRK43rWM-BfoMII3z5KxrAIGQAY0pZwN9jXjluJRfA",
+        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U6
+        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+    },
 }
 # ====================================================
 

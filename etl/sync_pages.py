@@ -181,6 +181,13 @@ UNITS = {
             "Levonglow-ชาแม่แย้ม ลดเบาหวาน": "[P7] Levonglow-ชาแม่แย้ม ลดเบาหวาน",
         },
     },
+    "U10": {
+        "source_sheet_id": "1f7Wwk3lzXIaqVJorj_UgWLs5ruCv0pDL_1GIhMUZ14U",
+        # master catalog ไม่มีแถวของ U10 เลยสักแถว (เช็ค 8/8/2569) เหมือน U6 — ดึงข้อมูลไปก่อน
+        # ตามที่ตกลง ทุกเพจจะขึ้น active="inactive", admin="" ใน Staging ไปพลางๆ
+        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U10
+        "tab_to_catalog": {},  # ว่างไว้ก่อน เพราะ catalog ยังไม่มีแถว U10 ให้จับคู่
+    },
 }
 # ====================================================
 

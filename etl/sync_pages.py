@@ -129,6 +129,14 @@ UNITS = {
         ],
         "tab_to_catalog": {},  # ว่างไว้ก่อน เพราะ catalog ยังไม่มีแถว U6 ให้จับคู่
     },
+    "U7": {
+        "source_sheet_id": "1sar_VxuTfoFXTlmX9ntnKrJPxgO_ecWnFK2cqoZXclY",
+        # master catalog มี U7 3 เพจ: [P1] D'Lellise Probiovita-น้ำชงโพรไบโอติก เพื่อผู้หญิง,
+        # [P2] D'lellise ProbioVita น้ำชงโพรไบโอติกส์ เพื่อสุขภาพผู้หญิง,
+        # [P3] D'lellise ProbioVita-โพรไบโอติกส์ ดูเเลภายในสตรี (แอดมิน: ปุยฝ้าย, ตะวัน, โฟล์ค)
+        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U7
+        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+    },
 }
 # ====================================================
 

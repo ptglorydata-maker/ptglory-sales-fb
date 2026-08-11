@@ -303,6 +303,18 @@ UNITS = {
             "เพจพลูคาวพลัส พ่อทองชิต-จบทุกปัญหาผิวหนัง": "[P2] พลูคาวพลัส ตราพ่อทองชิด - จบทุกปัญหาผิวหนัง",
         },
     },
+    "U15": {
+        "source_sheet_id": "1GaLaa1z6MNAORYl0GrjftzGQ2n5KE112FRnbDLSLr9Q",
+        # master catalog มี U15 6 เพจ:
+        # [P1] DWAWA - Multi Green Veggie ลดไขมันในเลือด (มายด์, นุ๊ก)
+        # [P2] DWAWA - Multi Green Veggie ดีท็อกซ์ไขมันในเลือด (ฟ้า, นุ๊ก)
+        # [P3] Dwawa - Multi Green Veggie ดูแลสุขภาพ (ปลา, ต้นข้าว, มายด์)
+        # [P4] Dwawa-Multi GreenVeggie ราชินีผักเขียว ดีท็อกซ์ไขมันในเลือด (โอปอ)
+        # [P5] Multi Green Veggie ฟื้นฟูไขมันในเลือด (เอ็มเค, โอปอ)
+        # [P6] DWAWA-Multi Green Veggie ผงผักนาโน ดูแลระดับไขมันในเลือด (ต้นข้าว, มาร์ค)
+        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U15
+        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+    },
 }
 # ====================================================
 

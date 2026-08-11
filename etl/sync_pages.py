@@ -147,10 +147,16 @@ UNITS = {
     },
     "U8": {
         "source_sheet_id": "1WkITiROQINlT0-sZzRa2R1IjVe5i29aiZgPPT6yEbxE",
-        # master catalog มี U8 2 เพจ: [P2] D'Lellise-We Me Vistra จบปัญหาฉี่บ่อย ฉี่แสบขัด,
-        # [P4] We-me Vistra วิตามินดูแลฉี่แสบขัด (แอดมิน: บิว, ยีนส์, เฟิร์น)
-        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U8
-        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+        # ไฟล์มี tab เพจจริง 12 อัน ตรงกับ master catalog (ยัง active) แค่ 2 อัน (P2,P4)
+        # ที่เหลือเป็นเพจเก่าที่เลิกใช้แล้ว ไม่มีใน catalog
+        "page_tabs": [
+            "D'Lellise-We Me Vistra จบปัญหาฉี่บ่อย ฉี่แสบขัด ",   # active (P2)
+            "We-me Vistra วิตามินดูแลฉี่แสบขัด",                  # active (P4)
+        ],
+        "tab_to_catalog": {
+            "D'Lellise-We Me Vistra จบปัญหาฉี่บ่อย ฉี่แสบขัด ": "[P2] D'Lellise-We Me Vistra จบปัญหาฉี่บ่อย ฉี่แสบขัด",
+            "We-me Vistra วิตามินดูแลฉี่แสบขัด": "[P4] We-me Vistra วิตามินดูแลฉี่แสบขัด",
+        },
     },
 }
 # ====================================================

@@ -312,8 +312,22 @@ UNITS = {
         # [P4] Dwawa-Multi GreenVeggie ราชินีผักเขียว ดีท็อกซ์ไขมันในเลือด (โอปอ)
         # [P5] Multi Green Veggie ฟื้นฟูไขมันในเลือด (เอ็มเค, โอปอ)
         # [P6] DWAWA-Multi Green Veggie ผงผักนาโน ดูแลระดับไขมันในเลือด (ต้นข้าว, มาร์ค)
-        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U15
-        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+        "page_tabs": [
+            "เพจDWAWA - Multi Green Veggie ลดไขมันในเลือด ",                       # active (P1)
+            "เพจDWAWA - Multi Green Veggie ดีท็อกซ์ไขมันในเลือด",                  # active (P2)
+            "เพจ Dwawa - Multi Green Veggie ดูแลสุขภาพ",                          # active (P3)
+            "Dwawa-Multi GreenVeggie ราชินีผักเขียว ดีท็อกซ์ไขมันในเลือด",          # active (P4)
+            "เพจ DWAWA - Multi Green Veggie ฟื้นฟูไขมันในเลือด",                   # active (P5)
+            "DWAWA-Multi Green Veggie ผงผักนาโน ดูแลระดับไขมันในเลือด",           # active (P6)
+        ],
+        "tab_to_catalog": {
+            "เพจDWAWA - Multi Green Veggie ลดไขมันในเลือด ": "[P1] DWAWA - Multi Green Veggie ลดไขมันในเลือด",
+            "เพจDWAWA - Multi Green Veggie ดีท็อกซ์ไขมันในเลือด": "[P2] DWAWA - Multi Green Veggie ดีท็อกซ์ไขมันในเลือด",
+            "เพจ Dwawa - Multi Green Veggie ดูแลสุขภาพ": "[P3] Dwawa - Multi Green Veggie ดูแลสุขภาพ",
+            "Dwawa-Multi GreenVeggie ราชินีผักเขียว ดีท็อกซ์ไขมันในเลือด": "[P4] Dwawa-Multi GreenVeggie ราชินีผักเขียว ดีท็อกซ์ไขมันในเลือด",
+            "เพจ DWAWA - Multi Green Veggie ฟื้นฟูไขมันในเลือด": "[P5] Multi Green Veggie ฟื้นฟูไขมันในเลือด",
+            "DWAWA-Multi Green Veggie ผงผักนาโน ดูแลระดับไขมันในเลือด": "[P6] DWAWA-Multi Green Veggie ผงผักนาโน ดูแลระดับไขมันในเลือด",
+        },
     },
 }
 # ====================================================

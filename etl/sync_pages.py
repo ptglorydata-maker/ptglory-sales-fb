@@ -145,6 +145,13 @@ UNITS = {
             "D'Lellise Probiovita-โพรไบโอติกส์ ดูแลภายในสตรี": "[P3] D'lellise ProbioVita-โพรไบโอติกส์ ดูเเลภายในสตรี",
         },
     },
+    "U8": {
+        "source_sheet_id": "1WkITiROQINlT0-sZzRa2R1IjVe5i29aiZgPPT6yEbxE",
+        # master catalog มี U8 2 เพจ: [P2] D'Lellise-We Me Vistra จบปัญหาฉี่บ่อย ฉี่แสบขัด,
+        # [P4] We-me Vistra วิตามินดูแลฉี่แสบขัด (แอดมิน: บิว, ยีนส์, เฟิร์น)
+        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U8
+        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+    },
 }
 # ====================================================
 

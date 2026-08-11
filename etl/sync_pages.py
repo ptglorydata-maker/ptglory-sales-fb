@@ -329,6 +329,14 @@ UNITS = {
             "DWAWA-Multi Green Veggie ผงผักนาโน ดูแลระดับไขมันในเลือด": "[P6] DWAWA-Multi Green Veggie ผงผักนาโน ดูแลระดับไขมันในเลือด",
         },
     },
+    "U16": {
+        "source_sheet_id": "1GlnRNC98qcvw68NRTCEaXTWkJAkYRg2-nxoM7MmE-oI",
+        # master catalog มี U16 2 เพจ (แอดมินคนเดียวกันทั้งคู่: นา):
+        # [P1] Levonglow - ชาสมุนไพรต่อมลูกหมากสูตร2
+        # [P2] Levonglow - ชาหญ้าหนวดแมว เคล็ดลับสุขภาพวัย 40+
+        "page_tabs": [],       # ยังไม่ยืนยัน — เติมหลังรัน --discover U16
+        "tab_to_catalog": {},  # ยังไม่ยืนยัน
+    },
 }
 # ====================================================
 

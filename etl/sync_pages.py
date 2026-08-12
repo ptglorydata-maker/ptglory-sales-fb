@@ -474,7 +474,7 @@ UNITS = {
         ],
         "tab_to_catalog": {},
     },
-    "U13 ลาว": {
+    "U13 ลาว Capsule": {
         "source_sheet_id": "1M_ZHkswDHCko9JPcs43WIQpvJjvWMW7JdDhN-P-VmA0",
         "page_tabs": [],
         "tab_to_catalog": {},

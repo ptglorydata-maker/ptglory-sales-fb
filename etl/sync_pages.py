@@ -380,6 +380,11 @@ UNITS = {
             "เพจOrenji+ วิตามินส้ม สูตรนำเข้า": "[P1] Orenji+ วิตามินส้ม สูตรนำเข้า",
         },
     },
+    "U23": {
+        "source_sheet_id": "1CkVwXeeIlHX5B1Q3nxbKWjT_I4zKpxoq3fHT9-LZr28",
+        "page_tabs": [],
+        "tab_to_catalog": {},
+    },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",
         # master catalog มี U21 4 เพจ (แอดมินร่วมกันทั้งกลุ่ม: เรย์/ทราย/ไบร์ท/นิว):

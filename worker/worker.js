@@ -11,10 +11,6 @@ const SHEET_LAST = 'data68';
 const YEAR_THIS = '2569', YEAR_LAST = '2568';
 const GOOGLE_CLIENT_EMAIL = 'glory-sheets-reader-456@ptglory-dashboard-sales-fb.iam.gserviceaccount.com';
 
-// Staging Sheet รายเพจ (เขียนโดย etl/sync_pages.py) — ใช้สำหรับ action=pages
-const PAGES_SHEET_ID = '1Jd5jsYoslIpbOtZwQ-skrXir7DIIY1xmRq9jH7htskk';
-const PAGES_SHEET_TAB = 'staging_รายเพจ';
-
 // fallback เดิม (ใช้เฉพาะตอนอ่าน Sheets API โดยตรงพัง)
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwn9JTGFYlOpIbFGKnB7N4SZ7kYRzwY9UbgkOE-MemS5g66F7VKq2aRfa9BbW-j80uSJg/exec';
 const APPS_SCRIPT_TOKEN = 'ptglory_x9k2z7';
@@ -98,18 +94,14 @@ async function getAccessToken(env) {
   return data.access_token;
 }
 
-// อ่านค่าจากสเปรดชีตใดก็ได้ (ระบุ spreadsheetId เอง) — ใช้ทั้งกับ SPREADSHEET_ID หลัก และ PAGES_SHEET_ID
-async function fetchValuesFrom_(env, spreadsheetId, sheetName) {
+async function fetchSheetValues(env, sheetName) {
   var token = await getAccessToken(env);
-  var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + spreadsheetId + '/values/' +
+  var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SPREADSHEET_ID + '/values/' +
     encodeURIComponent(sheetName) + '?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER';
   var resp = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
   var data = await resp.json();
   if (!resp.ok) throw new Error('Sheets API error (' + sheetName + '): ' + JSON.stringify(data));
   return data.values || [];
-}
-async function fetchSheetValues(env, sheetName) {
-  return fetchValuesFrom_(env, SPREADSHEET_ID, sheetName);
 }
 
 // ============================================================
@@ -162,9 +154,6 @@ function parseDate_(v) {
     if (y > 2400) y -= 543;
     return new Date(y, mo - 1, d);
   }
-  // ISO เช่น 2026-01-01 (รูปแบบที่ etl/sync_pages.py เขียนลง Staging Sheet ด้วย date.isoformat())
-  var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
   var dd = new Date(s);
   return isNaN(dd.getTime()) ? null : dd;
 }
@@ -199,39 +188,6 @@ async function readSheet_(env, name) {
     rows.push(o);
   }
   _rowsCache_[name] = rows;
-  return rows;
-}
-
-// ---------- Staging Sheet รายเพจ (etl/sync_pages.py) — header ตรงกับชื่อ field อยู่แล้ว ไม่ต้อง resolveCols_ ----------
-var PAGES_NUMERIC_FIELDS = [
-  'ad_spend', 'chats_ads', 'chats_admin', 'cost_per_chat',
-  'sales_total', 'sales_new', 'sales_old',
-  'orders_total', 'orders_new', 'orders_old',
-  'close_rate_new', 'ads_pct', 'roas_new', 'roas_total', 'error_pct'
-];
-var _pagesRowsCache_ = null;
-async function readPagesSheet_(env) {
-  if (_pagesRowsCache_) return _pagesRowsCache_;
-  var values = await fetchValuesFrom_(env, PAGES_SHEET_ID, PAGES_SHEET_TAB);
-  if (values.length < 2) { _pagesRowsCache_ = []; return []; }
-  var header = values[0].map(function (h) { return String(h == null ? '' : h).trim(); });
-  var pos = {};
-  header.forEach(function (h, i) { if (pos[h] === undefined) pos[h] = i; });
-  var rows = [];
-  for (var r = 1; r < values.length; r++) {
-    var row = values[r], o = {};
-    header.forEach(function (h) { o[h] = row[pos[h]]; });
-    var d = parseDate_(o.date);
-    if (!d) continue;
-    o._date = d;
-    o.unit = o.unit != null ? String(o.unit).trim() : '';
-    o.page = o.page != null ? String(o.page).trim() : '';
-    o.admin = o.admin != null ? String(o.admin).trim() : '';
-    o.active = o.active != null ? String(o.active).trim() : '';
-    PAGES_NUMERIC_FIELDS.forEach(function (f) { o[f] = num_(o[f]); });
-    rows.push(o);
-  }
-  _pagesRowsCache_ = rows;
   return rows;
 }
 
@@ -733,52 +689,6 @@ async function getRangeData(env, startStr, endStr, unit) {
 }
 
 // ============================================================
-// ---------- getPagesData: action=pages&unit=Uxx ----------
-// อ่านจาก Staging Sheet รายเพจ (เขียนโดย etl/sync_pages.py) — คนละไฟล์กับ data69/data68
-// ไม่ระบุ unit -> คืนแค่ meta.units (รายชื่อยูนิตทั้งหมดที่มีในสเตจจิ้ง) ไม่คืนแถวข้อมูล กันโหลดหนัก
-// ============================================================
-async function getPagesData(env, unit) {
-  var rows = await readPagesSheet_(env);
-  if (!rows.length) return { error: 'อ่านข้อมูล Staging Sheet รายเพจไม่ได้ — ตรวจ PAGES_SHEET_ID/สิทธิ์การแชร์ หรือยังไม่เคย sync' };
-
-  var units = [];
-  rows.forEach(function (o) { if (o.unit && units.indexOf(o.unit) < 0) units.push(o.unit); });
-  units.sort();
-
-  var meta = { units: units, updated: fmtHM_(todayBangkok_()) };
-  if (!unit) return { meta: meta, pages: [], rows: [] };
-
-  var unitRows = rows.filter(function (o) { return o.unit === unit; });
-  if (!unitRows.length) return { meta: meta, pages: [], rows: [], error: 'ไม่พบข้อมูลของ unit นี้ใน Staging Sheet' };
-
-  // รายชื่อเพจของยูนิตนี้ + สถานะ active/admin ล่าสุด (แถวที่วันที่ใหม่สุดของแต่ละเพจ)
-  var pageMap = {};
-  unitRows.forEach(function (o) {
-    var p = pageMap[o.page];
-    if (!p || o._date > p._date) pageMap[o.page] = o;
-  });
-  var pages = Object.keys(pageMap).map(function (p) {
-    var o = pageMap[p];
-    return { page: p, admin: o.admin, active: o.active === 'active' };
-  }).sort(function (a, b) { return (b.active ? 1 : 0) - (a.active ? 1 : 0) || a.page.localeCompare(b.page); });
-
-  var outRows = unitRows
-    .sort(function (a, b) { return a._date - b._date; })
-    .map(function (o) {
-      return {
-        date: key_(o._date), page: o.page, admin: o.admin, active: o.active === 'active',
-        ad_spend: o.ad_spend, chats_ads: o.chats_ads, chats_admin: o.chats_admin, cost_per_chat: o.cost_per_chat,
-        sales_total: o.sales_total, sales_new: o.sales_new, sales_old: o.sales_old,
-        orders_total: o.orders_total, orders_new: o.orders_new, orders_old: o.orders_old,
-        close_rate_new: o.close_rate_new, ads_pct: o.ads_pct,
-        roas_new: o.roas_new, roas_total: o.roas_total, error_pct: o.error_pct
-      };
-    });
-
-  return { meta: meta, pages: pages, rows: outRows };
-}
-
-// ============================================================
 // ---------- fallback ไป Apps Script เดิม (เผื่ออ่าน Sheets API ตรงพัง) ----------
 // ============================================================
 async function fetchViaAppsScript(action, extraParams) {
@@ -795,10 +705,8 @@ async function computeData(env, action, params) {
     if (action === 'daily') return await getDashboardData(env, params.date || null, params.unit || null);
     if (action === 'monthly') return await getMonthlyData(env, params.unit || null);
     if (action === 'range') return await getRangeData(env, params.start, params.end, params.unit || null);
-    if (action === 'pages') return await getPagesData(env, params.unit || null); // ไม่มี fallback ไป Apps Script เดิม (ไม่รู้จัก action นี้)
     return { error: 'unknown action: ' + action };
   } catch (e) {
-    if (action === 'pages') return { error: e.message };
     // อ่าน Sheets API ตรงพัง (เช่น key หมดอายุ/สิทธิ์หลุด) → fallback ไป Apps Script เดิมกันเว็บล่ม
     try {
       return await fetchViaAppsScript(action, params);

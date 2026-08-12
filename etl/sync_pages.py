@@ -467,7 +467,11 @@ UNITS = {
     },
     "Test Zenova": {
         "source_sheet_id": "1wGcx1zH9bpXp-WTvqJwyG0B_OKCoxFHQ7y9fynbGj_0",
-        "page_tabs": [],
+        # master catalog ไม่มีเพจของ Test Zenova เลย — ดึงไปก่อนโดยไม่มี active/admin (เหมือน Test Menova P1)
+        "page_tabs": [
+            "[P1] Zenova - OIL ลดไขมัน ดูแลสุขภาพ",
+            "[P2] Zenova-OIL ลดไขมัน สูตรใหม่นำเข้าจากusa",
+        ],
         "tab_to_catalog": {},
     },
     "U21": {

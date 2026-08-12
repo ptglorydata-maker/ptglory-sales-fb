@@ -407,7 +407,14 @@ UNITS = {
     },
     "U7 ลาว": {
         "source_sheet_id": "1jKwxC0YRFrwJp4s5BkO1d8Yyo-Jt0Ks9pUOq0ARec0Y",
-        "page_tabs": [],
+        # master catalog ไม่มีเพจของ U7 ลาว เลย (เหมือน U6/U10) — ดึงไปก่อนโดยไม่มี active/admin
+        # ตามที่ user ยืนยัน รอ catalog เพิ่มแถวทีหลังแล้วค่อย sync ซ้ำ
+        "page_tabs": [
+            "D'Lellise Probiovita ຟື້ນຟູພາຍໃນ ຫຼຸດຕົກຂາວເຮື້ອຮັງ",
+            "D'Lellise Probiovita-ນ້ຳຊົງດູແລພາຍໃນ ແມ່ຍິງ",
+            "D'Lellise Probiovita ດູແລພາຍໃນຜູ້ຍິງຄົບວົງຈອນ",
+            "D’Lellise Probiovitaຂາຍດີທີ່ສຸດໃນໄທ",
+        ],
         "tab_to_catalog": {},
     },
     "U21": {

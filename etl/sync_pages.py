@@ -405,6 +405,11 @@ UNITS = {
             "[P4] Dwawa ginseng ວິຕາມິນໂສມຫຼຸດນໍ້າຕານໃນເລືອດ": "[P4] Dwawa ginseng ວິຕາມິນໂສມຫຼຸດນໍ້າຕານໃນເລືອດ",
         },
     },
+    "U7 ลาว": {
+        "source_sheet_id": "1jKwxC0YRFrwJp4s5BkO1d8Yyo-Jt0Ks9pUOq0ARec0Y",
+        "page_tabs": [],
+        "tab_to_catalog": {},
+    },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",
         # master catalog มี U21 4 เพจ (แอดมินร่วมกันทั้งกลุ่ม: เรย์/ทราย/ไบร์ท/นิว):

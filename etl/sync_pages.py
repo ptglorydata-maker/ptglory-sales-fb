@@ -396,8 +396,14 @@ UNITS = {
     },
     "U5 ลาว": {
         "source_sheet_id": "1_93UJWNskacHlrfKMaMOCRI4lfo9xkDnOrenZfQ_YcY",
-        "page_tabs": [],
-        "tab_to_catalog": {},
+        # master catalog มี U5 ลาว แค่ 1 เพจ (tab อื่นๆ ที่เหลือไม่มีใน catalog):
+        # [P4] Dwawa ginseng ວິຕາມິນໂສມຫຼຸດນໍ້າຕານໃນເລືອດ
+        "page_tabs": [
+            "[P4] Dwawa ginseng ວິຕາມິນໂສມຫຼຸດນໍ້າຕານໃນເລືອດ",
+        ],
+        "tab_to_catalog": {
+            "[P4] Dwawa ginseng ວິຕາມິນໂສມຫຼຸດນໍ້າຕານໃນເລືອດ": "[P4] Dwawa ginseng ວິຕາມິນໂສມຫຼຸດນໍ້າຕານໃນເລືອດ",
+        },
     },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",

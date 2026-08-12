@@ -419,8 +419,17 @@ UNITS = {
     },
     "U9 ลาว": {
         "source_sheet_id": "1uHrMmbU6jWpzJPP0zZvXwOGU7oGJSbLcKqdDxGosfP8",
-        "page_tabs": [],
-        "tab_to_catalog": {},
+        # master catalog มี U9 ลาว 3 เพจ:
+        "page_tabs": [
+            "เพจ ชาสมุนไพรแม่แย้ม ตรา LeVonglow Thailand ",
+            "เพจ Levonglow Th-ชาแม่แย้มเพื่อสุขภาพ ",
+            "เพจLevonglow - ຊາແມ່ແຢ້ມຊ່ວຍຫຼຸດຄວາມດັນ ຫຼຸດເບາຫວານ ຫຼຸດອາການມືເທົ້າຊາ",
+        ],
+        "tab_to_catalog": {
+            "เพจ ชาสมุนไพรแม่แย้ม ตรา LeVonglow Thailand ": "[P1] ชาสมุนไพรแม่แย้ม ตรา LeVonglow Thailand",
+            "เพจ Levonglow Th-ชาแม่แย้มเพื่อสุขภาพ ": "[P2] Levonglow Th-ชาแม่แย้มเพื่อสุขภาพ",
+            "เพจLevonglow - ຊາແມ່ແຢ້ມຊ່ວຍຫຼຸດຄວາມດັນ ຫຼຸດເບາຫວານ ຫຼຸດອາການມືເທົ້າຊາ": "[P3] Levonglow - ຊາແມ່ແຢ້ມຊ່ວຍຫຼຸດຄວາມດັນ ຫຼຸດເບາຫວານ ຫຼຸດອາການມືເທົ້າຊາ",
+        },
     },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",

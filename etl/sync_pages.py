@@ -539,7 +539,7 @@ def find_metric_columns(values, header_row):
         "sales_total": find_col(label_row, "ยอดรวม") or find_col(label_row, "ยอดขาย"),
         "sales_new": find_col(label_row, "ยอดรวมใหม่") or sales_new_group,
         "sales_old": sales_old_group,  # ไม่เจอป้ายแบบใหม่ที่ระดับเพจ ให้คำนวณ รวม-ใหม่ แทนถ้า None
-        "orders_total": find_col(label_row, "Order รวม") or find_col(label_row, "Order"),
+        "orders_total": find_col(label_row, "Order รวม") or find_col(label_row, "Order") or find_col(label_row, "ออเดอร์"),
         "orders_new": find_col(label_row, "Order ใหม่") or orders_new_group,
         "orders_old": orders_old_group,
         "ad_spend": find_col(label_row, "ค่าแอด"),

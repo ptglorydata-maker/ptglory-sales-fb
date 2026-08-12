@@ -454,8 +454,16 @@ UNITS = {
     },
     "Test Glacier Bloom": {
         "source_sheet_id": "1GXUssmABWh6FXfyIZrhbAyf2HmQpGfXBUsyoHHKenVU",
-        "page_tabs": [],
-        "tab_to_catalog": {},
+        # ดึงทุกเพจในไฟล์ ทั้งที่ปิดไปแล้วและที่เปิดอยู่ (เหมือน Test Menova):
+        # มีแค่ [P2] เท่านั้นที่อยู่ใน catalog ตอนนี้ ที่เหลือ (P3, เพจหลัก) จะได้ active=inactive
+        "page_tabs": [
+            "[P2] GlacierBloomครีมบัวหิมะ-ชมพู่ ก่อนบ่าย",
+            "[P3] GlacierBloom - ครีมบัวหิมะคืนความเยาว์",
+            "เพจ Glacier Bloom - เคล็ดลับผิวฉ่ำกระจ่างใส",
+        ],
+        "tab_to_catalog": {
+            "[P2] GlacierBloomครีมบัวหิมะ-ชมพู่ ก่อนบ่าย": "[P2] GlacierBloomครีมบัวหิมะ-ชมพู่ ก่อนบ่าย",
+        },
     },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",

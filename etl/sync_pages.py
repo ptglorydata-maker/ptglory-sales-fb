@@ -439,7 +439,7 @@ UNITS = {
         ],
         "tab_to_catalog": {},
     },
-    "Menova": {
+    "Test Menova": {
         "source_sheet_id": "1bShclvDtgYvtZzZ7O_Jfdnbr499e4fKnjd0G5UE8OJ4",
         "page_tabs": [],
         "tab_to_catalog": {},

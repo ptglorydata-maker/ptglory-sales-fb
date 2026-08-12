@@ -158,6 +158,7 @@
     <div class="nav" id="navMonthly" onclick="switchView('monthly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/></svg>ภาพรวมรายเดือน</div>
     <div class="nav" id="navYearly" onclick="switchView('yearly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="6" y="10" width="3" height="8"/><rect x="11" y="6" width="3" height="12"/><rect x="16" y="13" width="3" height="5"/></svg>ภาพรวมรายปี</div>
     <div class="nav" id="navRange" onclick="switchView('range')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M8 14h3M8 17h6"/></svg>ตามช่วงเวลา</div>
+    <div class="nav" id="navPages" onclick="switchView('pages')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none"/><path d="M6 16l3-3 2.5 2.5L15 12l3 4"/></svg>สถิติรายเพจ</div>
     <div class="pickwrap">
       <div id="ctrlDaily"><label>เลือกวันที่</label><input type="date" id="datePick"></div>
       <div id="ctrlMonthly" class="hide">
@@ -180,6 +181,24 @@
         <div id="customRange" class="hide">
           <label>ตั้งแต่</label><input type="date" id="rangeStart">
           <label>ถึง</label><input type="date" id="rangeEnd">
+        </div>
+      </div>
+      <div id="ctrlPages" class="hide">
+        <label>เลือกช่วงเวลา</label>
+        <select id="rangePick2" style="background-color:white;color:#333333">
+          <option value="today">วันนี้</option>
+          <option value="yesterday">เมื่อวาน</option>
+          <option value="today_yesterday">วันนี้และเมื่อวาน</option>
+          <option value="7d" selected>7 วันที่ผ่านมา</option>
+          <option value="14d">14 วันที่ผ่านมา</option>
+          <option value="30d">30 วันที่ผ่านมา</option>
+          <option value="this_month">เดือนนี้</option>
+          <option value="last_month">เดือนที่แล้ว</option>
+          <option value="custom">กำหนดเอง…</option>
+        </select>
+        <div id="customRange2" class="hide">
+          <label>ตั้งแต่</label><input type="date" id="rangeStart2">
+          <label>ถึง</label><input type="date" id="rangeEnd2">
         </div>
       </div>
 
@@ -321,6 +340,20 @@
       <div class="panel" style="margin:0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">ช่วงที่เลือก — สูง = ฐานซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ)</div>
         <div id="rCustHealth" style="margin-top:8px"></div></div>
     </section>
+
+    <section id="viewPages" class="hide">
+      <div class="grid row-hero">
+        <div class="card hero"><div class="lbl">ยอดขายรวมทุกเพจ</div><div class="big num" id="pSales">—</div><div id="pSalesMeta"></div></div>
+        <div class="card"><div class="lbl">งบที่ใช้ไปรวม</div><div class="big sm num" id="pAd">—</div><div id="pAdMeta"></div></div>
+        <div class="card"><div class="lbl">ROAS รวมทุกเพจ</div><div class="big sm num" id="pRoas">—</div><div id="pRoasMeta"></div></div>
+      </div>
+      <div class="panel" style="margin:0"><h3>สถิติรายเพจ</h3><div class="ph">สรุปแต่ละเพจในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+        <div style="overflow-x:auto"><table style="min-width:1500px"><thead><tr>
+          <th>เพจ</th><th>งบที่ใช้ไป</th><th>รวมคนทักใหม่ (ฝั่งแอด)</th><th>คนทักใหม่ (ฝั่งแอดมิน)</th><th>ต้นทุนทัก</th>
+          <th>ยอดขายรวม</th><th>ยอดขายใหม่</th><th>ยอดขายเก่า</th><th>ออเดอร์รวม</th><th>ออเดอร์ใหม่</th><th>ออเดอร์เก่า</th>
+          <th>%ปิดใหม่</th><th>%ค่า ADS</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>%ERROR รายเพจ</th>
+        </tr></thead><tbody id="pBody"></tbody></table></div></div>
+    </section>
   </main>
   </div>
 
@@ -329,6 +362,11 @@
 // ========== CONFIG: แก้ตรงนี้ก่อน deploy ==========
 var API_URL = 'https://glory-api.ptglorydata.workers.dev';
 var API_TOKEN = 'ptglory_x9k2z7'; // ต้องตรงกับ TOKEN ใน worker.js (Cloudflare)
+
+// --- สถิติรายเพจ (ข้อมูลจากชีต "Staging - รายเพจ" แยกต่างหาก ไม่ได้อยู่ใน Worker เดิม) ---
+// ดึงผ่าน Google Apps Script Web App ที่ deploy ไว้บนชีตนั้นโดยตรง (ดู pagestats-appsscript.gs ใน repo นี้)
+var PAGE_API_URL = ''; // ใส่ URL ที่ได้จาก Deploy > New deployment > Web app (ลงท้ายด้วย /exec)
+var PAGE_API_TOKEN = 'ptglory_pagestats_x7q2'; // ต้องตรงกับ TOKEN ใน pagestats-appsscript.gs
 
 // --- ล็อกอินด้วย Gmail (Google Sign-In) ---
 // 1) สร้าง OAuth Client ID (ประเภท "Web application") ที่ https://console.cloud.google.com/apis/credentials
@@ -416,17 +454,21 @@ function switchView(v){
   el('navMonthly').classList.toggle('on',v==='monthly');
   el('navYearly').classList.toggle('on',v==='yearly');
   el('navRange').classList.toggle('on',v==='range');
+  el('navPages').classList.toggle('on',v==='pages');
   el('viewDaily').classList.toggle('hide',v!=='daily');
   el('viewMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('viewYearly').classList.toggle('hide',v!=='yearly');
   el('viewRange').classList.toggle('hide',v!=='range');
+  el('viewPages').classList.toggle('hide',v!=='pages');
   el('ctrlDaily').classList.toggle('hide',v!=='daily');
   el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('ctrlRange').classList.toggle('hide',v!=='range');
-  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':'สรุปยอดขายตามช่วงเวลา'));
+  el('ctrlPages').classList.toggle('hide',v!=='pages');
+  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':(v==='pages'?'สถิติรายเพจ':'สรุปยอดขายตามช่วงเวลา')));
   if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='yearly'){ if(monthlyCache){ try{ renderYearly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='range'){ loadRange(); }
+  if(v==='pages'){ loadPageStats(); }
 }
 
 /* ---------- USAGE (สถิติการใช้งานแดชบอร์ด — แสดงอัตโนมัติที่ท้าย sidebar ไม่ต้องกดเข้าดู) ---------- */
@@ -451,8 +493,8 @@ function trackVisit(email){
 }
 
 /* ---------- RANGE (ตามช่วงเวลา) ---------- */
-function rangeDates(){
-  var p=el('rangePick').value, now=new Date(), e=new Date(now), s=new Date(now);
+function rangeDatesFor(pickId,startId,endId){
+  var p=el(pickId).value, now=new Date(), e=new Date(now), s=new Date(now);
   function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   if(p==='today'){}
   else if(p==='yesterday'){s.setDate(s.getDate()-1);e.setDate(e.getDate()-1);}
@@ -462,9 +504,10 @@ function rangeDates(){
   else if(p==='30d'){s.setDate(s.getDate()-29);}
   else if(p==='this_month'){s=new Date(now.getFullYear(),now.getMonth(),1);}
   else if(p==='last_month'){s=new Date(now.getFullYear(),now.getMonth()-1,1);e=new Date(now.getFullYear(),now.getMonth(),0);}
-  else if(p==='custom'){var cs=el('rangeStart').value,ce=el('rangeEnd').value;if(!cs||!ce)return null;return {start:cs,end:ce};}
+  else if(p==='custom'){var cs=el(startId).value,ce=el(endId).value;if(!cs||!ce)return null;return {start:cs,end:ce};}
   return {start:iso(s),end:iso(e)};
 }
+function rangeDates(){ return rangeDatesFor('rangePick','rangeStart','rangeEnd'); }
 var rangeCache={};
 function loadRange(){
   el('customRange').classList.toggle('hide',el('rangePick').value!=='custom');
@@ -550,6 +593,78 @@ function buildRangeInsights(d){
     out.push(insRow('info','◼','<b>ภาพรวมแอด</b> ต้นทุนทัก '+baht(t.cost_inbox)+(t.close_new!=null?(' · %ปิดใหม่ '+t.close_new.toFixed(1)+'%'):'')+(t.roas_all!=null?(' · ROAS รวม '+t.roas_all.toFixed(2)):'')));
   }
   el('insRange').innerHTML=out.length?out.join(''):'<div class="insrow info"><span class="ic">i</span><span>ยังไม่มีสัญญาณเด่นพอจะแจ้งในช่วงนี้</span></div>';
+}
+
+/* ---------- PAGES (สถิติรายเพจ) ---------- */
+var pageStatsCache={};
+function callPageApi(params,onSuccess,onError){
+  if(!PAGE_API_URL){ onError({message:'ยังไม่ได้ตั้งค่า PAGE_API_URL ในโค้ด กรุณาติดต่อผู้ดูแลระบบ'}); return; }
+  params.token=PAGE_API_TOKEN;
+  var qs=Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
+  fetch(PAGE_API_URL+'?'+qs)
+    .then(function(r){return r.json();})
+    .then(onSuccess)
+    .catch(function(e){onError({message:e.message||'Network error'});});
+}
+function loadPageStats(){
+  el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
+  var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
+  var key=rd.start+'|'+rd.end;
+  if(pageStatsCache[key]){
+    try{ renderPageStats(pageStatsCache[key]); }catch(e){ delete pageStatsCache[key]; }
+    callPageApi({start:rd.start,end:rd.end},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(){});
+    return;
+  }
+  show(true);
+  callPageApi({start:rd.start,end:rd.end},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(err){show(false);renderPageStatsError(err.message);});
+}
+function renderPageStatsError(msg){
+  el('pBody').innerHTML='<tr><td colspan="16" style="color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
+  el('pSales').textContent='—';el('pAd').textContent='—';el('pRoas').textContent='—';
+}
+function renderPageStats(d){
+  show(false);
+  if(d.error){ renderPageStatsError(d.error); return; }
+  var rows=d.rows||[];
+  var subLabel=d.start&&d.end?(d.start+' – '+d.end):'';
+  if(view==='pages') el('subDate').textContent=subLabel;
+  var tot={ad_spend:0,chats_ads:0,chats_admin:0,sales_total:0,sales_new:0,sales_old:0,orders_total:0,orders_new:0,orders_old:0};
+  rows.forEach(function(r){
+    tot.ad_spend+=r.ad_spend||0;tot.chats_ads+=r.chats_ads||0;tot.chats_admin+=r.chats_admin||0;
+    tot.sales_total+=r.sales_total||0;tot.sales_new+=r.sales_new||0;tot.sales_old+=r.sales_old||0;
+    tot.orders_total+=r.orders_total||0;tot.orders_new+=r.orders_new||0;tot.orders_old+=r.orders_old||0;
+  });
+  var roasTotal=tot.ad_spend?tot.sales_total/tot.ad_spend:null;
+  var roasNew=tot.ad_spend?tot.sales_new/tot.ad_spend:null;
+  var adsPct=tot.sales_total?tot.ad_spend/tot.sales_total*100:null;
+  el('pSales').textContent=baht(tot.sales_total);
+  el('pSalesMeta').innerHTML='ยอดใหม่ '+baht(tot.sales_new)+' · ยอดเก่า '+baht(tot.sales_old);
+  el('pAd').textContent=baht(tot.ad_spend);
+  el('pAdMeta').innerHTML=adsPct!=null?('<span class="vs">%ค่า ADS '+cspan(adsPct.toFixed(1)+'%','ad_pct',adsPct)+'</span>'):'';
+  el('pRoas').textContent=roasTotal!=null?roasTotal.toFixed(2):'—';
+  el('pRoasMeta').innerHTML=roasNew!=null?('<span class="vs">ROAS ใหม่ '+roasNew.toFixed(2)+'</span>'):'';
+  if(!rows.length){
+    el('pBody').innerHTML='<tr><td colspan="16" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
+    return;
+  }
+  el('pBody').innerHTML=rows.map(function(r){
+    return '<tr><td>'+esc(r.page)+(r.unit?(' <span class="vs">('+esc(r.unit)+')</span>'):'')+'</td>'
+      +'<td class="num">'+baht(r.ad_spend)+'</td>'
+      +'<td class="num">'+int0(r.chats_ads)+'</td>'
+      +'<td class="num">'+int0(r.chats_admin)+'</td>'
+      +'<td class="num">'+cspan(baht(r.cost_per_chat),'cost_inbox',r.cost_per_chat)+'</td>'
+      +'<td class="num">'+baht(r.sales_total)+'</td>'
+      +'<td class="num">'+baht(r.sales_new)+'</td>'
+      +'<td class="num">'+baht(r.sales_old)+'</td>'
+      +'<td class="num">'+int0(r.orders_total)+'</td>'
+      +'<td class="num">'+int0(r.orders_new)+'</td>'
+      +'<td class="num">'+int0(r.orders_old)+'</td>'
+      +'<td class="num">'+cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+'</td>'
+      +'<td class="num">'+cspan(num1(r.ads_pct,'%'),'ad_pct',r.ads_pct)+'</td>'
+      +'<td class="num">'+cspan(num1(r.roas_new),'roas',r.roas_new)+'</td>'
+      +'<td class="num">'+cspan(num1(r.roas_total),'roas',r.roas_total)+'</td>'
+      +'<td class="num">'+num1(r.error_pct,'%')+'</td></tr>';
+  }).join('');
 }
 
 /* ---------- DAILY ---------- */
@@ -952,6 +1067,9 @@ el('datePick').addEventListener('change',function(){loadDaily(this.value);});
 el('rangePick').addEventListener('change',loadRange);
 el('rangeStart').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
 el('rangeEnd').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
+el('rangePick2').addEventListener('change',loadPageStats);
+el('rangeStart2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
+el('rangeEnd2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
 el('refreshBtn').addEventListener('click',function(){
   if(view==='daily')loadDaily(el('datePick').value,true);
   else if(view==='range')loadRange();

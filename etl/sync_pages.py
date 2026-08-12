@@ -441,8 +441,16 @@ UNITS = {
     },
     "Test Menova": {
         "source_sheet_id": "1bShclvDtgYvtZzZ7O_Jfdnbr499e4fKnjd0G5UE8OJ4",
-        "page_tabs": [],
-        "tab_to_catalog": {},
+        # ดึงทุกเพจในไฟล์ ทั้งที่ปิดไปแล้วและที่เปิดอยู่ (ตามที่ user ยืนยัน):
+        # [P1] Menova - วิตามินเสริมอาหารผู้ชาย — ปิดไปแล้ว ไม่มีใน catalog แล้ว (จะได้ active=inactive)
+        # [P2]  (tab ตั้งชื่อไม่ครบ) — เพจใหม่เพิ่งเปิดวันนี้ ตรงกับ catalog P2
+        "page_tabs": [
+            "[P1] Menova - วิตามินเสริมอาหารผู้ชาย",
+            "[P2] ",
+        ],
+        "tab_to_catalog": {
+            "[P2] ": "[P2] Menova-วิตามินที่ชายไทยไว้ใจ",
+        },
     },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",

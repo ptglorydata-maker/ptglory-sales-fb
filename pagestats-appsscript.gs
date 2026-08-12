@@ -22,7 +22,7 @@
  */
 
 // ===== CONFIG: แก้ตรงนี้ก่อน deploy =====
-var TOKEN = 'ptglory_pagestats_x7q2'; // ต้องตรงกับ PAGE_API_TOKEN ใน index.html
+var TOKEN = 'glory_pg_0922541941'; // ต้องตรงกับ PAGE_API_TOKEN ใน index.html
 var SHEET_GID = 851624242; // แท็บ "staging_รายเพจ" (จาก URL ...?gid=851624242)
 // ==========================================
 

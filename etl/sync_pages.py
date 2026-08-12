@@ -431,6 +431,11 @@ UNITS = {
             "เพจLevonglow - ຊາແມ່ແຢ້ມຊ່ວຍຫຼຸດຄວາມດັນ ຫຼຸດເບາຫວານ ຫຼຸດອາການມືເທົ້າຊາ": "[P3] Levonglow - ຊາແມ່ແຢ້ມຊ່ວຍຫຼຸດຄວາມດັນ ຫຼຸດເບາຫວານ ຫຼຸດອາການມືເທົ້າຊາ",
         },
     },
+    "U12 ลาว": {
+        "source_sheet_id": "1P4Fx50Jc_cG38n5F2hi9ShpMHPd93b1--2mgo8NcWm8",
+        "page_tabs": [],
+        "tab_to_catalog": {},
+    },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",
         # master catalog มี U21 4 เพจ (แอดมินร่วมกันทั้งกลุ่ม: เรย์/ทราย/ไบร์ท/นิว):

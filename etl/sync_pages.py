@@ -394,6 +394,11 @@ UNITS = {
             "Venorra - น้ำชงกลูต้า เคล็ดลับดูแลผิว": "[P6] Venorra Gluta Plus - เคล็ดลับดูแลผิวกระจ่างใส",
         },
     },
+    "U5 ลาว": {
+        "source_sheet_id": "1_93UJWNskacHlrfKMaMOCRI4lfo9xkDnOrenZfQ_YcY",
+        "page_tabs": [],
+        "tab_to_catalog": {},
+    },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",
         # master catalog มี U21 4 เพจ (แอดมินร่วมกันทั้งกลุ่ม: เรย์/ทราย/ไบร์ท/นิว):

@@ -476,7 +476,11 @@ UNITS = {
     },
     "U13 ลาว Capsule": {
         "source_sheet_id": "1M_ZHkswDHCko9JPcs43WIQpvJjvWMW7JdDhN-P-VmA0",
-        "page_tabs": [],
+        # master catalog ไม่มีเพจของ U13 ลาว Capsule เลย — ดึงไปก่อนโดยไม่มี active/admin
+        "page_tabs": [
+            "DWAWA LUNARY - ແຄບຊູນຊ່ວຍຫຼຸດນ້ຳໜັກແບບເຮັດໄວ",
+            "DWAWA-Lunary ລູນາຣີ່ ປັ້ນຫຸ່ນງາມ ກະຊັບສັດສ່ວນ ເປັນເພຈຫຼັກ ",
+        ],
         "tab_to_catalog": {},
     },
     "U21": {

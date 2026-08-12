@@ -433,7 +433,10 @@ UNITS = {
     },
     "U23 ลาว": {
         "source_sheet_id": "1P4Fx50Jc_cG38n5F2hi9ShpMHPd93b1--2mgo8NcWm8",
-        "page_tabs": [],
+        # master catalog ไม่มีเพจของ U23 ลาว เลย (เหมือน U6/U10/U7 ลาว) — ดึงไปก่อนโดยไม่มี active/admin
+        "page_tabs": [
+            "[P1] Venorra Gluta - ໜ້າອ່ອນໄວ ຈຸດດ່າງດຳເບິ່ງຈາງລົງ",
+        ],
         "tab_to_catalog": {},
     },
     "U21": {

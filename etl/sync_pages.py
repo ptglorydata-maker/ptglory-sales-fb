@@ -369,6 +369,11 @@ UNITS = {
             "Dwawa-Lunaryสูตรใหม่ ขจัดเซลล์ลูไลท์เพจบริษัท": "[P3] Dwawa-Lunaryสูตรใหม่ ขจัดเซลล์ลูไลท์เพจบริษัท",
         },
     },
+    "U22": {
+        "source_sheet_id": "1l4lCkjDqaD26Lv-6cQWpNMjVz4_BRiFuPIwCYFAmrqQ",
+        "page_tabs": [],
+        "tab_to_catalog": {},
+    },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",
         # master catalog มี U21 4 เพจ (แอดมินร่วมกันทั้งกลุ่ม: เรย์/ทราย/ไบร์ท/นิว):

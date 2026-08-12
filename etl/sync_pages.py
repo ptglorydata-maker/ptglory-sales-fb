@@ -346,8 +346,14 @@ UNITS = {
     },
     "U17": {
         "source_sheet_id": "1H7TiYcsBiiYIVy2LFzfMdPnRRHCnWpU-N7q8q8TOwKE",
-        "page_tabs": [],
-        "tab_to_catalog": {},
+        # master catalog มี U17 แค่ 1 เพจ (tab อื่นๆ สไตล์ "Dwawa JasonM-กาแฟ..." ไม่มีใน catalog เลย):
+        # [P2] DWAWA-Jason M กาแฟลดต่อมลูกหมากโต — จับคู่ตามชื่อใกล้เคียงที่สุด ควร spot-check
+        "page_tabs": [
+            "ดีวาวา-เจสันเอ็ม กาแฟลดต่อมลูกหมาก สูตรใหม่",
+        ],
+        "tab_to_catalog": {
+            "ดีวาวา-เจสันเอ็ม กาแฟลดต่อมลูกหมาก สูตรใหม่": "[P2] DWAWA-Jason M กาแฟลดต่อมลูกหมากโต",
+        },
     },
 }
 # ====================================================

@@ -371,8 +371,14 @@ UNITS = {
     },
     "U22": {
         "source_sheet_id": "1l4lCkjDqaD26Lv-6cQWpNMjVz4_BRiFuPIwCYFAmrqQ",
-        "page_tabs": [],
-        "tab_to_catalog": {},
+        # master catalog มี U22 แค่ 1 เพจ (tab อื่นๆ สไตล์ "Orenji Plus/Orenji+" ที่เหลือไม่มีใน catalog):
+        # [P1] Orenji+ วิตามินส้ม สูตรนำเข้า
+        "page_tabs": [
+            "เพจOrenji+ วิตามินส้ม สูตรนำเข้า",
+        ],
+        "tab_to_catalog": {
+            "เพจOrenji+ วิตามินส้ม สูตรนำเข้า": "[P1] Orenji+ วิตามินส้ม สูตรนำเข้า",
+        },
     },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",

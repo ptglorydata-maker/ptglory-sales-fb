@@ -382,8 +382,17 @@ UNITS = {
     },
     "U23": {
         "source_sheet_id": "1CkVwXeeIlHX5B1Q3nxbKWjT_I4zKpxoq3fHT9-LZr28",
-        "page_tabs": [],
-        "tab_to_catalog": {},
+        # master catalog มี U23 2 เพจ (แอดมินคนเดียวกันทั้งคู่: แก้ม (สุธีกานต์)):
+        # [P1] Venorra Gluta Plus-จบทุกปัญหาผิว
+        # [P6] Venorra Gluta Plus - เคล็ดลับดูแลผิวกระจ่างใส — จับคู่ตามชื่อใกล้เคียงที่สุด ควร spot-check
+        "page_tabs": [
+            "Venorra Gluta Plus -จบทุกปัญหาผิว",
+            "Venorra - น้ำชงกลูต้า เคล็ดลับดูแลผิว",
+        ],
+        "tab_to_catalog": {
+            "Venorra Gluta Plus -จบทุกปัญหาผิว": "[P1] Venorra Gluta Plus-จบทุกปัญหาผิว",
+            "Venorra - น้ำชงกลูต้า เคล็ดลับดูแลผิว": "[P6] Venorra Gluta Plus - เคล็ดลับดูแลผิวกระจ่างใส",
+        },
     },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",

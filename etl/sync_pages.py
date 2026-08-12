@@ -35,6 +35,7 @@ long-format เขียนลง Staging Sheet ให้ dashboard อ่าน
 การใช้งาน:
   python sync_pages.py --discover U5                    # แสดงรายชื่อ tab ทั้งหมดของ U5
   python sync_pages.py --discover U5 "ชื่อ tab"          # แสดงบล็อกรายเดือน + หัวตาราง ของ tab นั้น
+  python sync_pages.py --catalog U5                      # แสดงรายชื่อเพจของ U5 ใน master catalog (ช่วยจับคู่กับ tab)
   python sync_pages.py --unit U4                         # sync จริงเฉพาะ U4 (ต้อง map คอลัมน์ก่อน)
   python sync_pages.py --all                             # sync ทุกยูนิตที่มีอยู่ใน UNITS
 """
@@ -657,6 +658,20 @@ def main():
             print(f"ยังไม่มี source_sheet_id ของ {unit_label} ใน UNITS — เพิ่มก่อน (ต้องรู้ลิงก์ไฟล์ต้นทางของยูนิตนี้)")
             return
         discover(get_client(), source_sheet_id, unit_label, tab_name)
+        return
+
+    if "--catalog" in args:
+        idx = args.index("--catalog")
+        unit_label = args[idx + 1] if idx + 1 < len(args) else None
+        if not unit_label:
+            print("ใช้งาน: python sync_pages.py --catalog <UNIT>")
+            return
+        pages = load_master_catalog(get_client())
+        matches = [(name, info) for name, info in pages.items() if info["unit"] == unit_label]
+        print(f"=== เพจของ {unit_label} ใน master catalog: {len(matches)} เพจ ===")
+        for name, info in matches:
+            admins = ", ".join(info["admins"]) if info["admins"] else "(ไม่มีแอดมิน)"
+            print(f"- {name}  (แอดมิน: {admins})")
         return
 
     if "--unit" in args:

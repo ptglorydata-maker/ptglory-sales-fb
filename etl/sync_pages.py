@@ -465,6 +465,11 @@ UNITS = {
             "[P2] GlacierBloomครีมบัวหิมะ-ชมพู่ ก่อนบ่าย": "[P2] GlacierBloomครีมบัวหิมะ-ชมพู่ ก่อนบ่าย",
         },
     },
+    "Test Zenova": {
+        "source_sheet_id": "1wGcx1zH9bpXp-WTvqJwyG0B_OKCoxFHQ7y9fynbGj_0",
+        "page_tabs": [],
+        "tab_to_catalog": {},
+    },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",
         # master catalog มี U21 4 เพจ (แอดมินร่วมกันทั้งกลุ่ม: เรย์/ทราย/ไบร์ท/นิว):

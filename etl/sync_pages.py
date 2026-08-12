@@ -417,6 +417,11 @@ UNITS = {
         ],
         "tab_to_catalog": {},
     },
+    "U9 ลาว": {
+        "source_sheet_id": "1uHrMmbU6jWpzJPP0zZvXwOGU7oGJSbLcKqdDxGosfP8",
+        "page_tabs": [],
+        "tab_to_catalog": {},
+    },
     "U21": {
         "source_sheet_id": "1AVewaVALYRW5TTBe2vkecd1zOFBE2e7wNE77jmHksjI",
         # master catalog มี U21 4 เพจ (แอดมินร่วมกันทั้งกลุ่ม: เรย์/ทราย/ไบร์ท/นิว):

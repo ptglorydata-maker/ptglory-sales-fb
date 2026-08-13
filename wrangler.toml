@@ -1,0 +1,11 @@
+name = "glory-pages-api"
+main = "worker/glory-pages-api.js"
+compatibility_date = "2024-01-01"
+
+# ผูก KV namespace ชื่อ GLORY_KV หลัง deploy ครั้งแรกผ่าน Dashboard:
+# Worker > Settings > Bindings > Add > KV Namespace > binding name = GLORY_KV
+# เลือก namespace เดิม (glory-visits) หรือสร้างใหม่ก็ได้
+
+# ตั้งค่า secret GOOGLE_PRIVATE_KEY หลัง deploy ครั้งแรกผ่าน Dashboard:
+# Worker > Settings > Variables and Secrets > Add > ชื่อ GOOGLE_PRIVATE_KEY (encrypt)
+# ใส่ค่า private_key จากไฟล์ service account JSON (glory-sheets-reader-456@...)

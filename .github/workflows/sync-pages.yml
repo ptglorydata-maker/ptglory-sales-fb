@@ -1,0 +1,31 @@
+name: Sync Pages Data
+
+on:
+  schedule:
+    # วันละ 4 ครั้ง ตามเวลาไทย (UTC+7): 10:00, 14:00, 16:00, 20:00
+    - cron: '0 3,7,9,13 * * *'
+  workflow_dispatch: {} # กดรันเองจากแท็บ Actions ได้ด้วย (ไว้ทดสอบ)
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r etl/requirements.txt
+
+      - name: Write service account credentials
+        run: echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/service-account.json"
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Sync all units to Staging Sheet
+        working-directory: etl
+        run: python sync_pages.py --all
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/service-account.json

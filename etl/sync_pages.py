@@ -43,10 +43,30 @@ long-format เขียนลง Staging Sheet ให้ dashboard อ่าน
 import os
 import re
 import sys
+import time
 from datetime import datetime
 
 import gspread
 from google.oauth2.service_account import Credentials
+
+
+def call_with_retry(fn, *args, max_retries=6, **kwargs):
+    """เรียก gspread API พร้อม retry แบบ exponential backoff เมื่อเจอ rate limit (429)
+    จำเป็นเพราะ --all ยิง read requests รัวๆ หลายสิบครั้งในไม่กี่วินาที เกิน Google Sheets API
+    quota เริ่มต้น (60 read requests/นาที/user) ได้ง่าย โดยเฉพาะตอนรันบน GitHub Actions
+    ที่ไม่มีดีเลย์ระหว่างคำสั่งเหมือนตอนรันมือทีละยูนิต"""
+    delay = 5
+    for attempt in range(max_retries):
+        try:
+            return fn(*args, **kwargs)
+        except gspread.exceptions.APIError as e:
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status == 429 and attempt < max_retries - 1:
+                print(f"  [rate limit] เจอ 429 รอ {delay}s แล้วลองใหม่ ({attempt + 1}/{max_retries})")
+                time.sleep(delay)
+                delay = min(delay * 2, 60)
+                continue
+            raise
 
 # ========== CONFIG: แก้ตรงนี้ก่อนรัน ==========
 SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "service_account.json")
@@ -580,9 +600,9 @@ def parse_thai_short_date(s):
 
 def load_master_catalog(client):
     """คืน dict: page_name -> {"unit": ..., "admins": [...]}"""
-    sh = client.open_by_key(MASTER_CATALOG_SHEET_ID)
-    ws = sh.worksheet(MASTER_CATALOG_TAB)
-    rows = ws.get_all_records()  # ใช้แถว 1 เป็น header: UNIT, เพจ, แอดมิน, ชื่อไฟล์, link
+    sh = call_with_retry(client.open_by_key, MASTER_CATALOG_SHEET_ID)
+    ws = call_with_retry(sh.worksheet, MASTER_CATALOG_TAB)
+    rows = call_with_retry(ws.get_all_records)  # ใช้แถว 1 เป็น header: UNIT, เพจ, แอดมิน, ชื่อไฟล์, link
 
     pages = {}
     for r in rows:
@@ -672,7 +692,7 @@ def find_metric_columns(values, header_row):
 def parse_page_tab(ws, unit_name, page_name):
     """Unpivot 1 tab (1 เพจ) ทุกบล็อกเดือนที่เจอ -> list of dict (long format)
     หาตำแหน่งคอลัมน์ใหม่ทุกบล็อกเดือน (ดู find_metric_columns) แทนตำแหน่งคงที่"""
-    values = ws.get_all_values()
+    values = call_with_retry(ws.get_all_values)
     blocks = find_date_blocks(values)
     out = []
 
@@ -739,23 +759,27 @@ def parse_page_tab(ws, unit_name, page_name):
 
 
 def read_staging(write_client):
-    sh = write_client.open_by_key(STAGING_SHEET_ID)
+    sh = call_with_retry(write_client.open_by_key, STAGING_SHEET_ID)
     try:
-        ws = sh.worksheet(STAGING_TAB)
+        ws = call_with_retry(sh.worksheet, STAGING_TAB)
     except gspread.WorksheetNotFound:
         return []
-    return ws.get_all_records()
+    return call_with_retry(ws.get_all_records)
 
 
 def write_staging(write_client, rows):
-    sh = write_client.open_by_key(STAGING_SHEET_ID)
+    sh = call_with_retry(write_client.open_by_key, STAGING_SHEET_ID)
     try:
-        ws = sh.worksheet(STAGING_TAB)
+        ws = call_with_retry(sh.worksheet, STAGING_TAB)
     except gspread.WorksheetNotFound:
-        ws = sh.add_worksheet(title=STAGING_TAB, rows=1, cols=len(STAGING_HEADER))
+        ws = call_with_retry(sh.add_worksheet, title=STAGING_TAB, rows=1, cols=len(STAGING_HEADER))
 
-    ws.clear()
-    ws.update([STAGING_HEADER] + [[r.get(h, "") for h in STAGING_HEADER] for r in rows], value_input_option="RAW")
+    call_with_retry(ws.clear)
+    call_with_retry(
+        ws.update,
+        [STAGING_HEADER] + [[r.get(h, "") for h in STAGING_HEADER] for r in rows],
+        value_input_option="RAW",
+    )
     print(f"เขียนรวม {len(rows)} แถว ลง '{STAGING_TAB}' เรียบร้อย")
 
 
@@ -774,11 +798,12 @@ def sync_unit(read_client, write_client, unit_name, pages, existing_rows):
         print(f"[ยังไม่ทำ] {unit_name} ยังไม่ได้ระบุ page_tabs — ข้าม")
         return existing_rows
 
-    sh = read_client.open_by_key(cfg["source_sheet_id"])
+    sh = call_with_retry(read_client.open_by_key, cfg["source_sheet_id"])
     unit_rows = []
     for tab_name in cfg["page_tabs"]:
-        ws = sh.worksheet(tab_name)
+        ws = call_with_retry(sh.worksheet, tab_name)
         unit_rows += parse_page_tab(ws, unit_name, tab_name)
+        time.sleep(1.5)  # กันยิง read requests รัวเกินไปจนชน Google Sheets API quota (60/นาที/user)
 
     tab_to_catalog = cfg["tab_to_catalog"]
     for r in unit_rows:

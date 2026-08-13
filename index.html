@@ -158,8 +158,13 @@
     <div class="nav" id="navMonthly" onclick="switchView('monthly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/></svg>ภาพรวมรายเดือน</div>
     <div class="nav" id="navYearly" onclick="switchView('yearly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="6" y="10" width="3" height="8"/><rect x="11" y="6" width="3" height="12"/><rect x="16" y="13" width="3" height="5"/></svg>ภาพรวมรายปี</div>
     <div class="nav" id="navRange" onclick="switchView('range')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M8 14h3M8 17h6"/></svg>ตามช่วงเวลา</div>
+    <div class="nav" id="navPages" onclick="switchView('pages')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="6" rx="1.5"/><rect x="14" y="15" width="7" height="6" rx="1.5"/></svg>รายเพจ</div>
     <div class="pickwrap">
       <div id="ctrlDaily"><label>เลือกวันที่</label><input type="date" id="datePick"></div>
+      <div id="ctrlPages" class="hide">
+        <label>เลือก Unit</label>
+        <select id="pagesUnitPick" style="background-color:white;color:#333333"><option value="">— เลือก Unit —</option></select>
+      </div>
       <div id="ctrlMonthly" class="hide">
         <label>เลือกเดือน</label>
         <select id="monthPick" style="background-color: white; color: #333333;"></select>
@@ -321,6 +326,23 @@
       <div class="panel" style="margin:0"><h3>สุขภาพฐานลูกค้า · สัดส่วนยอดจากลูกค้าเก่า รายยูนิต</h3><div class="ph">ช่วงที่เลือก — สูง = ฐานซื้อซ้ำแข็งแรง · ต่ำ = พึ่งลูกค้าใหม่สูง (เปราะ)</div>
         <div id="rCustHealth" style="margin-top:8px"></div></div>
     </section>
+
+    <section id="viewPages" class="hide">
+      <div id="pagesHint" class="panel" style="margin:0;color:var(--muted)">เลือก Unit จากเมนูด้านซ้ายเพื่อดูรายเพจ</div>
+      <div id="pagesBody" style="display:none">
+        <div class="grid row-hero">
+          <div class="card hero"><div class="lbl">ยอดขายรวม 30 วันล่าสุด (ทุกเพจ active)</div><div class="big num" id="pSales">—</div><div id="pSalesMeta" class="sub"></div></div>
+          <div class="card"><div class="lbl">เพจ active / ทั้งหมด</div><div class="big sm num" id="pActiveCount">—</div><div class="sub" id="pActiveSub"></div></div>
+          <div class="card"><div class="lbl">ROAS รวม 30 วันล่าสุด</div><div class="big sm num" id="pRoas">—</div><div class="sub" id="pRoasSub"></div></div>
+        </div>
+        <div class="panel" style="margin:0 0 18px"><h3>ยอดขายรวมรายวัน (ทุกเพจ)</h3><div class="ph">30 วันล่าสุด</div>
+          <div class="cw" style="height:240px"><canvas id="pTrend"></canvas></div></div>
+        <div class="panel" style="margin:0"><h3>สรุปรายเพจ</h3><div class="ph">ยอดรวม 30 วันล่าสุด ต่อเพจ — เรียงจากยอดขายมากไปน้อย</div>
+          <div style="overflow-x:auto"><table style="min-width:820px"><thead><tr>
+            <th>เพจ</th><th>สถานะ</th><th>แอดมิน</th><th>ยอดขายรวม</th><th>ออเดอร์รวม</th><th>ค่า Ads</th><th>ROAS รวม</th>
+          </tr></thead><tbody id="pPageBody"></tbody></table></div></div>
+      </div>
+    </section>
   </main>
   </div>
 
@@ -329,6 +351,10 @@
 // ========== CONFIG: แก้ตรงนี้ก่อน deploy ==========
 var API_URL = 'https://glory-api.ptglorydata.workers.dev';
 var API_TOKEN = 'ptglory_x9k2z7'; // ต้องตรงกับ TOKEN ใน worker.js (Cloudflare)
+
+// Worker แยกต่างหาก สำหรับข้อมูลยอดขายรายเพจ (อ่านจาก Staging Sheet รายเพจ ที่ etl/sync_pages.py เขียนไว้)
+// ต้อง deploy worker/glory-pages-api.js บน Cloudflare ก่อน แล้วเอา URL จริงมาใส่ตรงนี้
+var PAGES_API_URL = 'https://glory-pages-api.ptglorydata.workers.dev';
 
 // --- ล็อกอินด้วย Gmail (Google Sign-In) ---
 // 1) สร้าง OAuth Client ID (ประเภท "Web application") ที่ https://console.cloud.google.com/apis/credentials
@@ -416,17 +442,24 @@ function switchView(v){
   el('navMonthly').classList.toggle('on',v==='monthly');
   el('navYearly').classList.toggle('on',v==='yearly');
   el('navRange').classList.toggle('on',v==='range');
+  el('navPages').classList.toggle('on',v==='pages');
   el('viewDaily').classList.toggle('hide',v!=='daily');
   el('viewMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('viewYearly').classList.toggle('hide',v!=='yearly');
   el('viewRange').classList.toggle('hide',v!=='range');
+  el('viewPages').classList.toggle('hide',v!=='pages');
   el('ctrlDaily').classList.toggle('hide',v!=='daily');
   el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('ctrlRange').classList.toggle('hide',v!=='range');
-  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':'สรุปยอดขายตามช่วงเวลา'));
+  el('ctrlPages').classList.toggle('hide',v!=='pages');
+  el('unitLabel').style.display=(v==='pages')?'none':el('unitLabel').style.display;
+  el('unitPick').style.display=(v==='pages')?'none':el('unitPick').style.display;
+  el('refreshBtn').style.display=(v==='pages')?'none':el('refreshBtn').style.display;
+  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':(v==='pages'?'ยอดขายรายเพจ':'สรุปยอดขายตามช่วงเวลา')));
   if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='yearly'){ if(monthlyCache){ try{ renderYearly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='range'){ loadRange(); }
+  if(v==='pages'){ loadPagesUnits(); }
 }
 
 /* ---------- USAGE (สถิติการใช้งานแดชบอร์ด — แสดงอัตโนมัติที่ท้าย sidebar ไม่ต้องกดเข้าดู) ---------- */
@@ -947,6 +980,92 @@ function setupUnit(units,testUnits){
       if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else loadMonthly();};
   }
 }
+
+/* ---------- PAGES (รายเพจ — Staging Sheet รายเพจ ผ่าน Worker แยกต่างหาก glory-pages-api) ---------- */
+function callPagesApi(params,onSuccess,onError){
+  params=params||{};params.token=API_TOKEN;
+  var qs=Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
+  fetch(PAGES_API_URL+'?'+qs).then(function(r){return r.json();}).then(onSuccess).catch(function(e){onError({message:e.message||'Network error'});});
+}
+var pagesUnitsLoaded=false;
+function loadPagesUnits(){
+  if(pagesUnitsLoaded) return;
+  callPagesApi({},function(d){
+    pagesUnitsLoaded=true;
+    var units=(d&&d.meta&&d.meta.units)||[];
+    el('pagesUnitPick').innerHTML='<option value="">— เลือก Unit —</option>'+units.map(function(u){return '<option>'+esc(u)+'</option>';}).join('');
+    if(d.error){ el('pagesHint').textContent=d.error; }
+  },function(e){ el('pagesHint').textContent='โหลดรายชื่อ Unit ไม่สำเร็จ: '+(e.message||'')+' — ตรวจว่า deploy glory-pages-api บน Cloudflare แล้วหรือยัง (ดู PAGES_API_URL ในโค้ด)'; });
+}
+function loadPagesData(unit){
+  show(true);
+  callPagesApi({unit:unit},function(d){
+    show(false);
+    if(d.error){ el('pagesHint').textContent=d.error; el('pagesHint').style.display='block'; el('pagesBody').style.display='none'; return; }
+    renderPages(d);
+  },function(e){ show(false); el('pagesHint').textContent='โหลดข้อมูลไม่สำเร็จ: '+(e.message||''); el('pagesHint').style.display='block'; el('pagesBody').style.display='none'; });
+}
+function renderPages(d){
+  el('pagesHint').style.display='none';
+  el('pagesBody').style.display='block';
+  var rows=d.rows||[], pages=d.pages||[];
+  // 30 วันล่าสุดนับจากวันที่มีข้อมูลจริงล่าสุด (ไม่ใช่วันนี้ เผื่อ sync ยังไม่ถึงวันปัจจุบัน)
+  var maxDate=rows.reduce(function(m,r){return (!m||r.date>m)?r.date:m;},null);
+  var cutoff=null;
+  if(maxDate){
+    var md=new Date(maxDate+'T00:00:00'); md.setDate(md.getDate()-29);
+    cutoff=md.getFullYear()+'-'+String(md.getMonth()+1).padStart(2,'0')+'-'+String(md.getDate()).padStart(2,'0');
+  }
+  var recent=cutoff?rows.filter(function(r){return r.date>=cutoff;}):rows;
+
+  var byDay={};
+  recent.forEach(function(r){
+    if(!byDay[r.date]) byDay[r.date]={sales:0,ad:0};
+    if(r.sales_total!=null) byDay[r.date].sales+=r.sales_total;
+    if(r.ad_spend!=null) byDay[r.date].ad+=r.ad_spend;
+  });
+  var days=Object.keys(byDay).sort();
+  var totalSales=0,totalAd=0;
+  days.forEach(function(k){totalSales+=byDay[k].sales;totalAd+=byDay[k].ad;});
+  el('pSales').textContent=baht(totalSales);
+  el('pSalesMeta').textContent=days.length?(days[0]+' – '+days[days.length-1]):'';
+  el('pRoas').textContent=totalAd?(totalSales/totalAd).toFixed(2):'—';
+  el('pRoasSub').textContent='ยอดขาย ÷ ค่าแอด (30 วันล่าสุด)';
+
+  var activeN=pages.filter(function(p){return p.active;}).length;
+  el('pActiveCount').textContent=activeN+' / '+pages.length;
+  el('pActiveSub').textContent=pages.length?((pages.length-activeN)+' เพจปิด/ไม่มีใน catalog'):'';
+
+  mk('pTrend',{type:'bar',data:{labels:days.map(function(k){var dd=new Date(k+'T00:00:00');return dd.getDate()+'/'+(dd.getMonth()+1);}),
+    datasets:[{label:'ยอดขาย',data:days.map(function(k){return byDay[k].sales;}),backgroundColor:J,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return kfmt(v);}}}}}});
+
+  var byPage={};
+  recent.forEach(function(r){
+    if(!byPage[r.page]) byPage[r.page]={sales:0,orders:0,ad:0};
+    if(r.sales_total!=null) byPage[r.page].sales+=r.sales_total;
+    if(r.orders_total!=null) byPage[r.page].orders+=r.orders_total;
+    if(r.ad_spend!=null) byPage[r.page].ad+=r.ad_spend;
+  });
+  var pageRows=pages.map(function(p){
+    var agg=byPage[p.page]||{sales:0,orders:0,ad:0};
+    return {page:p.page,admin:p.admin,active:p.active,sales:agg.sales,orders:agg.orders,ad:agg.ad,roas:agg.ad?agg.sales/agg.ad:null};
+  }).sort(function(a,b){return b.sales-a.sales;});
+  el('pPageBody').innerHTML=pageRows.map(function(r){
+    return '<tr><td>'+esc(r.page)+'</td>'
+      +'<td>'+(r.active?'<span class="tag g">active</span>':'<span class="tag a">inactive</span>')+'</td>'
+      +'<td>'+esc(r.admin||'—')+'</td>'
+      +'<td class="num">'+baht(r.sales)+'</td>'
+      +'<td class="num">'+(r.orders?Math.round(r.orders).toLocaleString('th-TH'):'—')+'</td>'
+      +'<td class="num">'+baht(r.ad)+'</td>'
+      +'<td class="num">'+(r.roas!=null?r.roas.toFixed(2):'—')+'</td></tr>';
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--faint)">ไม่มีข้อมูล</td></tr>';
+}
+el('pagesUnitPick').addEventListener('change',function(){
+  var u=this.value;
+  if(!u){ el('pagesHint').textContent='เลือก Unit จากเมนูด้านซ้ายเพื่อดูรายเพจ'; el('pagesHint').style.display='block'; el('pagesBody').style.display='none'; return; }
+  loadPagesData(u);
+});
 
 el('datePick').addEventListener('change',function(){loadDaily(this.value);});
 el('rangePick').addEventListener('change',loadRange);

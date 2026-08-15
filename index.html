@@ -609,14 +609,14 @@ function callPageApi(params,onSuccess,onError){
 function loadPageStats(){
   el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
   var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
-  var key=rd.start+'|'+rd.end;
+  var key=rd.start+'|'+rd.end+'|'+(curUnit||'');
   if(pageStatsCache[key]){
     try{ renderPageStats(pageStatsCache[key]); }catch(e){ delete pageStatsCache[key]; }
-    callPageApi({start:rd.start,end:rd.end},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(){});
+    callPageApi({start:rd.start,end:rd.end,unit:curUnit||''},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(){});
     return;
   }
   show(true);
-  callPageApi({start:rd.start,end:rd.end},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(err){show(false);renderPageStatsError(err.message);});
+  callPageApi({start:rd.start,end:rd.end,unit:curUnit||''},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(err){show(false);renderPageStatsError(err.message);});
 }
 function renderPageStatsError(msg){
   el('pBody').innerHTML='<tr><td colspan="16" style="color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
@@ -1059,7 +1059,7 @@ function setupUnit(units,testUnits){
     if(testUnits.length) html+='<optgroup label="หน่วยทดลอง (test)">'+testUnits.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
     up.innerHTML=html;
     up.onchange=function(){curUnit=up.value;monthlyCache=null;monthlyCacheFresh=false;el('monthPick').innerHTML='';updateUnitBadge();
-      if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else loadMonthly();};
+      if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else if(view==='pages')loadPageStats();else loadMonthly();};
   }
 }
 

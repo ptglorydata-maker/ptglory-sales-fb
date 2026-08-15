@@ -693,8 +693,8 @@ function renderPageStats(d){
   el('peopleTablePh').textContent='สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
   el('peopleBody').innerHTML=sortedRows.map(function(r){
     return '<tr><td>'+esc(r.unit||'—')+'</td>'
-      +'<td>'+esc(r.page)+'</td>'
-      +'<td>'+esc(r.admin||'—')+'</td>'
+      +'<td style="text-align:left">'+esc(r.page)+'</td>'
+      +'<td style="text-align:left">'+esc(r.admin||'—')+'</td>'
       +'<td class="num">'+int0(r.chats_ads)+'</td>'
       +'<td class="num">'+int0(r.chats_admin)+'</td>'
       +'<td class="num">'+num1(r.error_pct,'%')+'</td>'
@@ -710,7 +710,7 @@ function renderPageStats(d){
   }).join('');
   el('pBody').innerHTML=sortedRows.map(function(r){
     return '<tr><td>'+esc(r.unit||'—')+'</td>'
-      +'<td>'+esc(r.page)+'</td>'
+      +'<td style="text-align:left">'+esc(r.page)+'</td>'
       +'<td class="num">'+baht(r.ad_spend)+'</td>'
       +'<td class="num">'+int0(r.chats_ads)+'</td>'
       +'<td class="num">'+int0(r.chats_admin)+'</td>'

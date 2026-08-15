@@ -706,9 +706,11 @@ def find_metric_columns(values, header_row):
         "cost_per_chat": find_col(label_row, "ต้นทุน\nต่อทัก"),
         "chats_ads": find_col(label_row, "สนทนารายใหม่"),
         "chats_admin": find_col(group_row, "รวมคนเข้าจริง"),
-        "close_rate_new": find_col_last(banner_row, "%ปิดใหม่"),
+        "close_rate_new": find_col(banner_row, "%ปิดใหม่"),
+        "close_rate_new_fallback": find_col_last(banner_row, "%ปิดใหม่"),
         "ads_pct": find_col(label_row, "%ค่าแอดรวม"),
-        "roas_new": find_col_last(banner_row, "ROAS\nใหม่"),
+        "roas_new": find_col(banner_row, "ROAS\nใหม่"),
+        "roas_new_fallback": find_col_last(banner_row, "ROAS\nใหม่"),
         # บางเพจไม่แยก "ใหม่"/"รวม" มีแค่ ROAS รวมตัวเดียวเรียกว่า "ROAS เฉพาะเพจ" แทน
         "roas_total": find_col(banner_row, "ROAS\nรวม") or find_col(banner_row, "ROAS\nเฉพาะเพจ"),
         "error_pct": find_col(banner_row, "% Error"),
@@ -772,6 +774,24 @@ def parse_page_tab(ws, unit_name, page_name):
             if orders_old is None and orders_total is not None and orders_new is not None:
                 orders_old = orders_total - orders_new
 
+            def pct_num(v):
+                try:
+                    return float(v.replace("%", "")) if v not in ("", None) else None
+                except ValueError:
+                    return None
+
+            def with_fallback_text(primary_col, fallback_col):
+                """เหมือน with_fallback แต่คืนข้อความดิบ (เช่น "44.00%") ไม่ใช่เลข ใช้กับฟิลด์ที่เก็บ
+                เป็น string พร้อมเครื่องหมาย % — บางเพจมีป้าย "%ปิดใหม่"/"ROAS ใหม่" ซ้ำ 2 จุดในบล็อก
+                เดียวกัน จุดไหนใช้งานจริงขึ้นกับจำนวนแอดมินที่แบ่งงานเดือนนั้น (ไม่คงที่ เปลี่ยนได้ทุกเดือน)
+                จึงต้องลองทั้งคู่ต่อแถว ไม่ใช่เลือกจุดเดียวทั้งบล็อก"""
+                primary_txt = cell(row, primary_col)
+                if (not pct_num(primary_txt)) and fallback_col and fallback_col != primary_col:
+                    fb_txt = cell(row, fallback_col)
+                    if pct_num(fb_txt):
+                        return fb_txt
+                return primary_txt
+
             out.append({
                 "date": d.isoformat(),
                 "unit": unit_name,
@@ -786,9 +806,9 @@ def parse_page_tab(ws, unit_name, page_name):
                 "orders_total": orders_total,
                 "orders_new": orders_new,
                 "orders_old": orders_old,
-                "close_rate_new": cell(row, cols["close_rate_new"]),
+                "close_rate_new": with_fallback_text(cols["close_rate_new"], cols.get("close_rate_new_fallback")),
                 "ads_pct": cell(row, cols["ads_pct"]),
-                "roas_new": num(cell(row, cols["roas_new"])),
+                "roas_new": with_fallback(cols["roas_new"], cols.get("roas_new_fallback")),
                 "roas_total": num(cell(row, cols["roas_total"])),
                 "error_pct": cell(row, cols["error_pct"]),
             })

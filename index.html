@@ -674,7 +674,10 @@ function renderPageStats(d){
   }
   // เพจที่ไม่มียอดขาย หรือ inactive อยู่แล้ว ให้ตกไปกองรวมกันที่ล่างสุดของตารางทั้งหมด (ไม่ปนกับกลุ่มยูนิตที่มียอดจริง)
   // ด้านบนจะเห็นแต่เพจที่มียอดจริง เรียงยูนิตน้อยไปมากแล้วค่อยยอดขายมากไปน้อยในยูนิตนั้นเหมือนเดิม
-  function hasData(r){ return r.active!==false && (r.sales_total||0)>0; }
+  // เดิมเช็คร่วมกับ active ด้วย แต่ยูนิตที่ยังไม่มีข้อมูลใน master catalog (U6, U7 ลาว, U10,
+  // U13 ลาว Capsule ฯลฯ) ETL จะตั้ง active="inactive" ให้ทุกเพจเสมอไม่ว่าจะขายได้จริงหรือไม่
+  // เลยทำให้เพจที่มียอดขายจริงโดนดันลงไปด้วย — เช็คแค่ยอดขายจริงพอ ไม่ยึด active flag
+  function hasData(r){ return (r.sales_total||0)>0; }
   var sortedRows=rows.slice();
   sortedRows.sort(function(a,b){
     var ad=hasData(a),bd=hasData(b);

@@ -672,20 +672,20 @@ function renderPageStats(d){
     el('peopleBody').innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
     return;
   }
-  // เพจที่ไม่มียอดขาย หรือ inactive อยู่แล้ว ให้ตกไปอยู่ล่างสุดเสมอ (ไม่ว่าจะดูยูนิตเดียวหรือทั้งหมด)
-  // กันสับสน/งง ไม่ต้องไล่หาเพจที่มีข้อมูลจริงปนอยู่กับเพจร้าง — ถ้าดู "ทั้งหมด" ยังเรียงยูนิตน้อยไปมากไว้ก่อนเหมือนเดิม
+  // เพจที่ไม่มียอดขาย หรือ inactive อยู่แล้ว ให้ตกไปกองรวมกันที่ล่างสุดของตารางทั้งหมด (ไม่ปนกับกลุ่มยูนิตที่มียอดจริง)
+  // ด้านบนจะเห็นแต่เพจที่มียอดจริง เรียงยูนิตน้อยไปมากแล้วค่อยยอดขายมากไปน้อยในยูนิตนั้นเหมือนเดิม
   function hasData(r){ return r.active!==false && (r.sales_total||0)>0; }
   var sortedRows=rows.slice();
   sortedRows.sort(function(a,b){
+    var ad=hasData(a),bd=hasData(b);
+    if(ad!==bd) return ad?-1:1;
     if(showingAllUnits){
       var byUnit=(a.unit||'').localeCompare(b.unit||'',undefined,{numeric:true});
       if(byUnit) return byUnit;
     }
-    var ad=hasData(a),bd=hasData(b);
-    if(ad!==bd) return ad?-1:1;
     return b.sales_total-a.sales_total;
   });
-  var sortNote=(showingAllUnits?'เรียงตามยูนิตก่อน แล้วเรียงยอดขายรวมมากไปน้อยในยูนิตนั้น':'เรียงตามยอดขายรวมมากไปน้อย')+' (เพจที่ไม่มียอด/ปิดใช้งานอยู่ล่างสุด)';
+  var sortNote=(showingAllUnits?'เรียงตามยูนิตก่อน แล้วเรียงยอดขายรวมมากไปน้อยในยูนิตนั้น':'เรียงตามยอดขายรวมมากไปน้อย')+' (เพจที่ไม่มียอด/ปิดใช้งานกองรวมไว้ล่างสุด)';
   el('pTablePh').textContent='สรุปแต่ละเพจในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
   el('peopleTablePh').textContent='สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
   el('peopleBody').innerHTML=sortedRows.map(function(r){

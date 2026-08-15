@@ -348,18 +348,18 @@
         <div class="card"><div class="lbl">งบที่ใช้ไปรวม</div><div class="big sm num" id="pAd">—</div><div id="pAdMeta"></div></div>
         <div class="card"><div class="lbl">ROAS รวมทุกเพจ</div><div class="big sm num" id="pRoas">—</div><div id="pRoasMeta"></div></div>
       </div>
-      <div class="panel" style="margin:0"><h3>สถิติรายเพจ</h3><div class="ph">สรุปแต่ละเพจในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+      <div class="panel" style="margin:0"><h3>สถิติรายเพจ</h3><div class="ph" id="pTablePh">สรุปแต่ละเพจในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
         <div style="overflow-x:auto"><table style="min-width:1500px"><thead><tr>
-          <th>เพจ</th><th>งบที่ใช้ไป</th><th>รวมคนทักใหม่ (ฝั่งแอด)</th><th>คนทักใหม่ (ฝั่งแอดมิน)</th><th>ต้นทุนทัก</th>
+          <th>เพจ</th><th>หน่วย</th><th>งบที่ใช้ไป</th><th>รวมคนทักใหม่ (ฝั่งแอด)</th><th>คนทักใหม่ (ฝั่งแอดมิน)</th><th>ต้นทุนทัก</th>
           <th>ยอดขายรวม</th><th>ยอดขายใหม่</th><th>ยอดขายเก่า</th><th>ออเดอร์รวม</th><th>ออเดอร์ใหม่</th><th>ออเดอร์เก่า</th>
           <th>%ปิดใหม่</th><th>%ค่า ADS</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>%ERROR รายเพจ</th>
         </tr></thead><tbody id="pBody"></tbody></table></div></div>
     </section>
 
     <section id="viewPeople" class="hide">
-      <div class="panel" style="margin:0"><h3>สถิติรายคน</h3><div class="ph">สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+      <div class="panel" style="margin:0"><h3>สถิติรายคน</h3><div class="ph" id="peopleTablePh">สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
         <div style="overflow-x:auto"><table style="min-width:1400px"><thead><tr>
-          <th>เพจ</th><th>แอดมิน</th><th>รวมคนทักใหม่ ADS</th><th>นับคนเข้าจริง ADMIN</th><th>% ERROR รายเพจ</th><th>ต้นทุนทัก รายเพจ</th>
+          <th>เพจ</th><th>หน่วย</th><th>แอดมิน</th><th>รวมคนทักใหม่ ADS</th><th>นับคนเข้าจริง ADMIN</th><th>% ERROR รายเพจ</th><th>ต้นทุนทัก รายเพจ</th>
           <th>ยอดขายใหม่</th><th>ออเดอร์ใหม่</th><th>ยอดขายเก่า</th><th>ออเดอร์เก่า</th><th>ยอดขายรวม</th><th>ออเดอร์รวม</th>
           <th>% ปิดใหม่</th><th>เปอร์บิล</th>
         </tr></thead><tbody id="peopleBody"></tbody></table></div></div>
@@ -663,12 +663,22 @@ function renderPageStats(d){
   el('pRoas').textContent=roasTotal!=null?roasTotal.toFixed(2):'—';
   el('pRoasMeta').innerHTML=roasNew!=null?('<span class="vs">ROAS ใหม่ '+roasNew.toFixed(2)+'</span>'):'';
   if(!rows.length){
-    el('pBody').innerHTML='<tr><td colspan="16" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
-    el('peopleBody').innerHTML='<tr><td colspan="14" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
+    el('pBody').innerHTML='<tr><td colspan="17" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
+    el('peopleBody').innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
     return;
   }
-  el('peopleBody').innerHTML=rows.map(function(r){
-    return '<tr><td>'+esc(r.page)+(r.unit?(' <span class="vs">('+esc(r.unit)+')</span>'):'')+'</td>'
+  // ดู "ทั้งหมด" (ไม่ได้เจาะยูนิตเดียว) -> เรียงตามยูนิตก่อนแล้วค่อยยอดขายในยูนิตนั้น ดูง่ายกว่าคละกันมั่ว
+  var showingAll=!curPageUnit||curPageUnit==='ทั้งหมด';
+  var sortedRows=rows.slice();
+  if(showingAll){
+    sortedRows.sort(function(a,b){ return (a.unit||'').localeCompare(b.unit||'',undefined,{numeric:true}) || b.sales_total-a.sales_total; });
+  }
+  var sortNote=showingAll?'เรียงตามยูนิตก่อน แล้วเรียงยอดขายรวมมากไปน้อยในยูนิตนั้น':'เรียงตามยอดขายรวมมากไปน้อย';
+  el('pTablePh').textContent='สรุปแต่ละเพจในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
+  el('peopleTablePh').textContent='สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
+  el('peopleBody').innerHTML=sortedRows.map(function(r){
+    return '<tr><td>'+esc(r.page)+'</td>'
+      +'<td>'+esc(r.unit||'—')+'</td>'
       +'<td>'+esc(r.admin||'—')+'</td>'
       +'<td class="num">'+int0(r.chats_ads)+'</td>'
       +'<td class="num">'+int0(r.chats_admin)+'</td>'
@@ -683,8 +693,9 @@ function renderPageStats(d){
       +'<td class="num">'+cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+'</td>'
       +'<td class="num">'+baht(r.aov)+'</td></tr>';
   }).join('');
-  el('pBody').innerHTML=rows.map(function(r){
-    return '<tr><td>'+esc(r.page)+(r.unit?(' <span class="vs">('+esc(r.unit)+')</span>'):'')+'</td>'
+  el('pBody').innerHTML=sortedRows.map(function(r){
+    return '<tr><td>'+esc(r.page)+'</td>'
+      +'<td>'+esc(r.unit||'—')+'</td>'
       +'<td class="num">'+baht(r.ad_spend)+'</td>'
       +'<td class="num">'+int0(r.chats_ads)+'</td>'
       +'<td class="num">'+int0(r.chats_admin)+'</td>'

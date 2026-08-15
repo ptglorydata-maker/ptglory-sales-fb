@@ -530,7 +530,7 @@ function renderRange(d){
   show(false);
   if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
   var m=d.meta,t=d.totals;
-  el('updated').textContent=m.updated;
+  el('updated').textContent=nowBangkokHM();
   el('subDate').textContent=m.startLabel+' – '+m.endLabel+' ('+m.days+' วัน) · เทียบช่วงก่อน '+m.prevLabel;
   el('footUpdated').innerHTML='ข้อมูลล่าสุด: '+(m.maxDate||'—')+'<br>หน่วยงานวิเคราะห์ PT Glory';
   setupUnit(m.units,m.testUnits); updateUnitBadge();
@@ -705,7 +705,7 @@ function renderDaily(d){
   if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
   var m=d.meta,k=d.kpi;
   if(view==='daily') el('subDate').textContent=m.dateLabel+(m.prevLabel?(' · เทียบกับ '+m.prevLabel):'');
-  el('updated').textContent=m.updated;
+  el('updated').textContent=nowBangkokHM();
   el('footUpdated').innerHTML='ข้อมูลล่าสุด: '+m.maxDate+'<br>หน่วยงานวิเคราะห์ PT Glory';
   el('lgThis').textContent=m.yearThis;el('lgLast').textContent=m.yearLast;
   var dp=el('datePick');dp.min=m.minDate;dp.max=m.maxDate;dp.value=m.selected;
@@ -766,7 +766,7 @@ function renderMonthly(d){
   if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
   updateUnitBadge();
   var m=d.meta,C=d.cur,L=d.last;
-  el('updated').textContent=m.updated;
+  el('updated').textContent=nowBangkokHM();
   el('mLgThis').textContent=m.yearThis;el('mLgLast').textContent=m.yearLast;
   var mp=el('monthPick');
   if(mp.options.length===0){
@@ -970,7 +970,7 @@ function renderYearly(d){
   show(false);
   if(d.error){el('err').style.display='block';el('err').textContent=d.error;return;}
   var m=d.meta;
-  el('updated').textContent=m.updated;
+  el('updated').textContent=nowBangkokHM();
   el('yYearLabel').textContent=m.yearThis;
   el('footUpdated').innerHTML='ข้อมูลปี '+m.yearThis+'<br>หน่วยงานวิเคราะห์ PT Glory';
   setupUnit(m.units,m.testUnits); updateUnitBadge();

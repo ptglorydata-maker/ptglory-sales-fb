@@ -624,12 +624,16 @@ function renderPageStatsError(msg){
   el('pBody').innerHTML='<tr><td colspan="16" style="color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
   el('pSales').textContent='—';el('pAd').textContent='—';el('pRoas').textContent='—';
 }
+function nowBangkokHM(){
+  var bkk=new Date(Date.now()+7*3600*1000);
+  return String(bkk.getUTCHours()).padStart(2,'0')+':'+String(bkk.getUTCMinutes()).padStart(2,'0');
+}
 function renderPageStats(d){
   show(false);
   if(d.error){ renderPageStatsError(d.error); return; }
   var rows=d.rows||[];
   var subLabel=d.start&&d.end?(d.start+' – '+d.end):'';
-  if(view==='pages') el('subDate').textContent=subLabel;
+  if(view==='pages'){ el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM(); }
   var tot={ad_spend:0,chats_ads:0,chats_admin:0,sales_total:0,sales_new:0,sales_old:0,orders_total:0,orders_new:0,orders_old:0};
   rows.forEach(function(r){
     tot.ad_spend+=r.ad_spend||0;tot.chats_ads+=r.chats_ads||0;tot.chats_admin+=r.chats_admin||0;

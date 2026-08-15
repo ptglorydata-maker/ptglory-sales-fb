@@ -670,12 +670,26 @@ def find_metric_columns(values, header_row):
     sales_new_group, orders_new_group = group_total_cols("ใหม่")
     sales_old_group, orders_old_group = group_total_cols("เก่า")
 
+    # ป้ายแบบใหม่ ("ยอดรวม"/"Order รวม") บางเพจเริ่มมีข้อมูลจริง "กลางเดือน" ไม่ใช่ตั้งแต่ต้นบล็อก
+    # (ทีมเพิ่งเปลี่ยนมาใช้ระหว่างเดือน) วันก่อนหน้านั้นคอลัมน์ใหม่จะเป็น 0 ทั้งที่มีข้อมูลจริง
+    # อยู่ในคอลัมน์แบบเก่า — เก็บคอลัมน์เก่าไว้เป็น fallback ให้ parse_page_tab ลองต่อแถวถ้าใหม่=0
+    sales_total_new = find_col(label_row, "ยอดรวม")
+    sales_total_old = find_col(label_row, "ยอดขาย")
+    orders_total_new = find_col(label_row, "Order รวม")
+    orders_total_old = find_col(label_row, "Order") or find_col(label_row, "ออเดอร์")
+    sales_new_new = find_col(label_row, "ยอดรวมใหม่")
+    orders_new_new = find_col(label_row, "Order ใหม่")
+
     return {
-        "sales_total": find_col(label_row, "ยอดรวม") or find_col(label_row, "ยอดขาย"),
-        "sales_new": find_col(label_row, "ยอดรวมใหม่") or sales_new_group,
+        "sales_total": sales_total_new or sales_total_old,
+        "sales_total_fallback": sales_total_old if sales_total_new else None,
+        "sales_new": sales_new_new or sales_new_group,
+        "sales_new_fallback": sales_new_group if sales_new_new else None,
         "sales_old": sales_old_group,  # ไม่เจอป้ายแบบใหม่ที่ระดับเพจ ให้คำนวณ รวม-ใหม่ แทนถ้า None
-        "orders_total": find_col(label_row, "Order รวม") or find_col(label_row, "Order") or find_col(label_row, "ออเดอร์"),
-        "orders_new": find_col(label_row, "Order ใหม่") or orders_new_group,
+        "orders_total": orders_total_new or orders_total_old,
+        "orders_total_fallback": orders_total_old if orders_total_new else None,
+        "orders_new": orders_new_new or orders_new_group,
+        "orders_new_fallback": orders_new_group if orders_new_new else None,
         "orders_old": orders_old_group,
         "ad_spend": find_col(label_row, "ค่าแอด"),
         "cost_per_chat": find_col(label_row, "ต้นทุน\nต่อทัก"),
@@ -724,14 +738,25 @@ def parse_page_tab(ws, unit_name, page_name):
             if not d:
                 continue
 
-            sales_total = num(cell(row, cols["sales_total"]))
-            sales_new = num(cell(row, cols["sales_new"]))
+            def with_fallback(primary_col, fallback_col):
+                """อ่านค่าจากคอลัมน์หลักก่อน ถ้าเป็น 0/ว่าง และมี fallback (คอลัมน์แบบเก่า)
+                ที่มีค่าจริงไม่เป็น 0 ให้ใช้ fallback แทน (เพจเปลี่ยนมาใช้ป้ายแบบใหม่กลางเดือน
+                วันก่อนเปลี่ยนคอลัมน์ใหม่จะว่าง/0 ทั้งที่มีข้อมูลจริงอยู่คอลัมน์เก่า)"""
+                v = num(cell(row, primary_col))
+                if (not v) and fallback_col:
+                    fb = num(cell(row, fallback_col))
+                    if fb:
+                        return fb
+                return v
+
+            sales_total = with_fallback(cols["sales_total"], cols.get("sales_total_fallback"))
+            sales_new = with_fallback(cols["sales_new"], cols.get("sales_new_fallback"))
             sales_old = num(cell(row, cols["sales_old"]))
             if sales_old is None and sales_total is not None and sales_new is not None:
                 sales_old = sales_total - sales_new  # ไม่มีคอลัมน์ "เก่า" ตรงๆ ในบล็อกแบบใหม่ (ก.ค.69+)
 
-            orders_total = num(cell(row, cols["orders_total"]))
-            orders_new = num(cell(row, cols["orders_new"]))
+            orders_total = with_fallback(cols["orders_total"], cols.get("orders_total_fallback"))
+            orders_new = with_fallback(cols["orders_new"], cols.get("orders_new_fallback"))
             orders_old = num(cell(row, cols["orders_old"]))
             if orders_old is None and orders_total is not None and orders_new is not None:
                 orders_old = orders_total - orders_new

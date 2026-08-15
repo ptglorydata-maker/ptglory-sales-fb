@@ -19,6 +19,8 @@
  * - close_rate_new (%ปิดใหม่) ใช้ค่าเฉลี่ยถ่วงน้ำหนักด้วย chats_ads ของแต่ละวัน (ประมาณการ เพราะไม่ทราบสูตรจริงที่ใช้คำนวณคอลัมน์นี้ในชีต)
  * - error_pct (%ERROR รายเพจ) ใช้ค่าเฉลี่ยธรรมดาของแต่ละวันที่มีข้อมูล (ไม่ทราบสูตร/ตัวหารที่แท้จริงเช่นกัน)
  * ถ้าสูตรจริงของ close_rate_new / error_pct ต่างจากนี้ ให้แก้ในฟังก์ชัน getPageStats() ด้านล่าง
+ * - admin ใช้ค่าจากแถววันที่ล่าสุดในช่วงที่เลือก (ไม่ได้รวม/เฉลี่ย เพราะเป็นข้อความ)
+ * - aov (เปอร์บิล) คำนวณจากยอดรวมช่วง (sales_new/orders_new) เหมือน cost_per_chat ไม่ใช่ค่าเฉลี่ยรายวัน
  */
 
 // ===== CONFIG: แก้ตรงนี้ก่อน deploy =====
@@ -82,7 +84,7 @@ function getPageStats(start, end, unitFilter) {
   var col = {};
   header.forEach(function (h, i) { col[String(h).trim()] = i; });
 
-  var need = ['date', 'unit', 'page', 'ad_spend', 'chats_ads', 'chats_admin',
+  var need = ['date', 'unit', 'page', 'admin', 'ad_spend', 'chats_ads', 'chats_admin',
     'sales_total', 'sales_new', 'sales_old', 'orders_total', 'orders_new', 'orders_old',
     'close_rate_new', 'error_pct'];
   need.forEach(function (k) { if (!(k in col)) throw new Error('ไม่พบคอลัมน์ในชีต: ' + k); });
@@ -105,7 +107,7 @@ function getPageStats(start, end, unitFilter) {
     var key = unit + '|' + page;
     if (!byPage[key]) {
       byPage[key] = {
-        unit: unit, page: page,
+        unit: unit, page: page, admin: '',
         ad_spend: 0, chats_ads: 0, chats_admin: 0,
         sales_total: 0, sales_new: 0, sales_old: 0,
         orders_total: 0, orders_new: 0, orders_old: 0,
@@ -114,6 +116,9 @@ function getPageStats(start, end, unitFilter) {
       };
     }
     var g = byPage[key];
+    // แอดมินอาจเปลี่ยนได้ระหว่างช่วงที่เลือก — ใช้ค่าจากแถววันที่ล่าสุดในช่วงนั้นเป็นตัวแทน
+    var rowAdmin = String(row[col.admin] || '').trim();
+    if (rowAdmin) g.admin = rowAdmin;
     g.ad_spend += num_(row[col.ad_spend]);
     g.chats_ads += num_(row[col.chats_ads]);
     g.chats_admin += num_(row[col.chats_admin]);
@@ -139,6 +144,9 @@ function getPageStats(start, end, unitFilter) {
     return {
       unit: g.unit,
       page: g.page,
+      admin: g.admin,
+      // เปอร์บิล = ยอดขายใหม่ ÷ ออเดอร์ใหม่ (ราคาเฉลี่ยต่อบิลของลูกค้าใหม่ — สูตรเดียวกับที่ dashboard ใช้ที่อื่น)
+      aov: g.orders_new ? round2_(g.sales_new / g.orders_new) : 0,
       ad_spend: round2_(g.ad_spend),
       chats_ads: g.chats_ads,
       chats_admin: g.chats_admin,

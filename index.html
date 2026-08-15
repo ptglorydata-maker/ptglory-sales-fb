@@ -159,6 +159,7 @@
     <div class="nav" id="navYearly" onclick="switchView('yearly')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="6" y="10" width="3" height="8"/><rect x="11" y="6" width="3" height="12"/><rect x="16" y="13" width="3" height="5"/></svg>ภาพรวมรายปี</div>
     <div class="nav" id="navRange" onclick="switchView('range')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M8 14h3M8 17h6"/></svg>ตามช่วงเวลา</div>
     <div class="nav" id="navPages" onclick="switchView('pages')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none"/><path d="M6 16l3-3 2.5 2.5L15 12l3 4"/></svg>สถิติรายเพจ</div>
+    <div class="nav" id="navPeople" onclick="switchView('people')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="8" r="2.4"/><path d="M15.5 14.3c2.5.3 4.5 2.6 4.5 5.7"/></svg>สถิติรายคน</div>
     <div class="pickwrap">
       <div id="ctrlDaily"><label>เลือกวันที่</label><input type="date" id="datePick"></div>
       <div id="ctrlMonthly" class="hide">
@@ -354,6 +355,15 @@
           <th>%ปิดใหม่</th><th>%ค่า ADS</th><th>ROAS ใหม่</th><th>ROAS รวม</th><th>%ERROR รายเพจ</th>
         </tr></thead><tbody id="pBody"></tbody></table></div></div>
     </section>
+
+    <section id="viewPeople" class="hide">
+      <div class="panel" style="margin:0"><h3>สถิติรายคน</h3><div class="ph">สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+        <div style="overflow-x:auto"><table style="min-width:1400px"><thead><tr>
+          <th>เพจ</th><th>แอดมิน</th><th>รวมคนทักใหม่ ADS</th><th>นับคนเข้าจริง ADMIN</th><th>% ERROR รายเพจ</th><th>ต้นทุนทัก รายเพจ</th>
+          <th>ยอดขายใหม่</th><th>ออเดอร์ใหม่</th><th>ยอดขายเก่า</th><th>ออเดอร์เก่า</th><th>ยอดขายรวม</th><th>ออเดอร์รวม</th>
+          <th>% ปิดใหม่</th><th>เปอร์บิล</th>
+        </tr></thead><tbody id="peopleBody"></tbody></table></div></div>
+    </section>
   </main>
   </div>
 
@@ -451,26 +461,29 @@ function switchView(v){
   var prevView=view;
   view=v;
   closeSidebar();
-  if(v==='pages') enterPagesUnitMode(); else if(prevView==='pages') exitPagesUnitMode();
+  var isPageLike=(v==='pages'||v==='people'), wasPageLike=(prevView==='pages'||prevView==='people');
+  if(isPageLike&&!wasPageLike) enterPagesUnitMode(); else if(!isPageLike&&wasPageLike) exitPagesUnitMode();
   el('navDaily').classList.toggle('on',v==='daily');
   el('navMonthly').classList.toggle('on',v==='monthly');
   el('navYearly').classList.toggle('on',v==='yearly');
   el('navRange').classList.toggle('on',v==='range');
   el('navPages').classList.toggle('on',v==='pages');
+  el('navPeople').classList.toggle('on',v==='people');
   el('viewDaily').classList.toggle('hide',v!=='daily');
   el('viewMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('viewYearly').classList.toggle('hide',v!=='yearly');
   el('viewRange').classList.toggle('hide',v!=='range');
   el('viewPages').classList.toggle('hide',v!=='pages');
+  el('viewPeople').classList.toggle('hide',v!=='people');
   el('ctrlDaily').classList.toggle('hide',v!=='daily');
   el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('ctrlRange').classList.toggle('hide',v!=='range');
-  el('ctrlPages').classList.toggle('hide',v!=='pages');
-  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':(v==='pages'?'สถิติรายเพจ':'สรุปยอดขายตามช่วงเวลา')));
+  el('ctrlPages').classList.toggle('hide',!isPageLike);
+  el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':(v==='pages'?'สถิติรายเพจ':(v==='people'?'สถิติรายคน':'สรุปยอดขายตามช่วงเวลา'))));
   if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='yearly'){ if(monthlyCache){ try{ renderYearly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='range'){ loadRange(); }
-  if(v==='pages'){ loadPageStats(); }
+  if(isPageLike){ loadPageStats(); }
 }
 
 /* ---------- USAGE (สถิติการใช้งานแดชบอร์ด — แสดงอัตโนมัติที่ท้าย sidebar ไม่ต้องกดเข้าดู) ---------- */
@@ -633,7 +646,7 @@ function renderPageStats(d){
   if(d.error){ renderPageStatsError(d.error); return; }
   var rows=d.rows||[];
   var subLabel=d.start&&d.end?(d.start+' – '+d.end):'';
-  if(view==='pages'){ el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM(); }
+  if(view==='pages'||view==='people'){ el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM(); }
   var tot={ad_spend:0,chats_ads:0,chats_admin:0,sales_total:0,sales_new:0,sales_old:0,orders_total:0,orders_new:0,orders_old:0};
   rows.forEach(function(r){
     tot.ad_spend+=r.ad_spend||0;tot.chats_ads+=r.chats_ads||0;tot.chats_admin+=r.chats_admin||0;
@@ -651,8 +664,25 @@ function renderPageStats(d){
   el('pRoasMeta').innerHTML=roasNew!=null?('<span class="vs">ROAS ใหม่ '+roasNew.toFixed(2)+'</span>'):'';
   if(!rows.length){
     el('pBody').innerHTML='<tr><td colspan="16" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
+    el('peopleBody').innerHTML='<tr><td colspan="14" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
     return;
   }
+  el('peopleBody').innerHTML=rows.map(function(r){
+    return '<tr><td>'+esc(r.page)+(r.unit?(' <span class="vs">('+esc(r.unit)+')</span>'):'')+'</td>'
+      +'<td>'+esc(r.admin||'—')+'</td>'
+      +'<td class="num">'+int0(r.chats_ads)+'</td>'
+      +'<td class="num">'+int0(r.chats_admin)+'</td>'
+      +'<td class="num">'+num1(r.error_pct,'%')+'</td>'
+      +'<td class="num">'+cspan(baht(r.cost_per_chat),'cost_inbox',r.cost_per_chat)+'</td>'
+      +'<td class="num">'+baht(r.sales_new)+'</td>'
+      +'<td class="num">'+int0(r.orders_new)+'</td>'
+      +'<td class="num">'+baht(r.sales_old)+'</td>'
+      +'<td class="num">'+int0(r.orders_old)+'</td>'
+      +'<td class="num">'+baht(r.sales_total)+'</td>'
+      +'<td class="num">'+int0(r.orders_total)+'</td>'
+      +'<td class="num">'+cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+'</td>'
+      +'<td class="num">'+baht(r.aov)+'</td></tr>';
+  }).join('');
   el('pBody').innerHTML=rows.map(function(r){
     return '<tr><td>'+esc(r.page)+(r.unit?(' <span class="vs">('+esc(r.unit)+')</span>'):'')+'</td>'
       +'<td class="num">'+baht(r.ad_spend)+'</td>'

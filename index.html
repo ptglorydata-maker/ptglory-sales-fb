@@ -641,10 +641,15 @@ function nowBangkokHM(){
   var bkk=new Date(Date.now()+7*3600*1000);
   return String(bkk.getUTCHours()).padStart(2,'0')+':'+String(bkk.getUTCMinutes()).padStart(2,'0');
 }
+function isTestUnitName(u){ return /^test/i.test((u||'').trim()); }
 function renderPageStats(d){
   show(false);
   if(d.error){ renderPageStatsError(d.error); return; }
   var rows=d.rows||[];
+  var showingAllUnits=!curPageUnit||curPageUnit==='ทั้งหมด';
+  // มุมมอง "ทั้งหมด (ยอดจริง)" ไม่ควรปนหน่วยทดลอง (Test ...) เพราะยังไม่ใช่ยอดขายจริง
+  // แต่ถ้าเลือกหน่วย Test ตรงๆ จาก dropdown ก็ยังดูข้อมูลของหน่วยนั้นได้ตามปกติ
+  if(showingAllUnits) rows=rows.filter(function(r){ return !isTestUnitName(r.unit); });
   var subLabel=d.start&&d.end?(d.start+' – '+d.end):'';
   if(view==='pages'||view==='people'){ el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM(); }
   var tot={ad_spend:0,chats_ads:0,chats_admin:0,sales_total:0,sales_new:0,sales_old:0,orders_total:0,orders_new:0,orders_old:0};
@@ -668,12 +673,11 @@ function renderPageStats(d){
     return;
   }
   // ดู "ทั้งหมด" (ไม่ได้เจาะยูนิตเดียว) -> เรียงตามยูนิตก่อนแล้วค่อยยอดขายในยูนิตนั้น ดูง่ายกว่าคละกันมั่ว
-  var showingAll=!curPageUnit||curPageUnit==='ทั้งหมด';
   var sortedRows=rows.slice();
-  if(showingAll){
+  if(showingAllUnits){
     sortedRows.sort(function(a,b){ return (a.unit||'').localeCompare(b.unit||'',undefined,{numeric:true}) || b.sales_total-a.sales_total; });
   }
-  var sortNote=showingAll?'เรียงตามยูนิตก่อน แล้วเรียงยอดขายรวมมากไปน้อยในยูนิตนั้น':'เรียงตามยอดขายรวมมากไปน้อย';
+  var sortNote=showingAllUnits?'เรียงตามยูนิตก่อน แล้วเรียงยอดขายรวมมากไปน้อยในยูนิตนั้น':'เรียงตามยอดขายรวมมากไปน้อย';
   el('pTablePh').textContent='สรุปแต่ละเพจในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
   el('peopleTablePh').textContent='สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
   el('peopleBody').innerHTML=sortedRows.map(function(r){

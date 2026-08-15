@@ -648,6 +648,17 @@ def find_metric_columns(values, header_row):
                 return i + 1  # 1-based column
         return None
 
+    def find_col_last(row, text):
+        """เหมือน find_col แต่คืนตำแหน่งที่เจอ 'ล่าสุด' (ขวาสุด) แทนตัวแรก — บางเพจมีป้ายซ้ำ 2 จุด
+        ในบล็อกเดียวกัน (ตัวเก่าซ้ายมือที่เลิกใช้แล้ว ค่าเป็น 0 ตลอด + ตัวใหม่ขวามือที่ทีมกรอกจริง)
+        ยืนยันจากไฟล์จริง U15 'เพจ Dwawa - Multi Green Veggie ดูแลสุขภาพ': %ปิดใหม่ ตัวที่ใช้จริง
+        อยู่คอลัมน์ BM (ทางขวา) ไม่ใช่ตัวแรกทางซ้ายที่ค่าเป็น 0.00%/0.00 มาตลอด"""
+        found = None
+        for i, cell_val in enumerate(row):
+            if cell_val.strip() == text:
+                found = i + 1
+        return found
+
     def find_col_containing(row, substr):
         for i, cell_val in enumerate(row):
             if substr in cell_val:
@@ -695,9 +706,9 @@ def find_metric_columns(values, header_row):
         "cost_per_chat": find_col(label_row, "ต้นทุน\nต่อทัก"),
         "chats_ads": find_col(label_row, "สนทนารายใหม่"),
         "chats_admin": find_col(group_row, "รวมคนเข้าจริง"),
-        "close_rate_new": find_col(banner_row, "%ปิดใหม่"),
+        "close_rate_new": find_col_last(banner_row, "%ปิดใหม่"),
         "ads_pct": find_col(label_row, "%ค่าแอดรวม"),
-        "roas_new": find_col(banner_row, "ROAS\nใหม่"),
+        "roas_new": find_col_last(banner_row, "ROAS\nใหม่"),
         # บางเพจไม่แยก "ใหม่"/"รวม" มีแค่ ROAS รวมตัวเดียวเรียกว่า "ROAS เฉพาะเพจ" แทน
         "roas_total": find_col(banner_row, "ROAS\nรวม") or find_col(banner_row, "ROAS\nเฉพาะเพจ"),
         "error_pct": find_col(banner_row, "% Error"),

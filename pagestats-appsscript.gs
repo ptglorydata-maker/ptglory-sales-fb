@@ -113,14 +113,14 @@ function getPageStats(start, end, unitFilter) {
 
   var result = Object.keys(byPage).map(function (k) {
     var g = byPage[k];
-    var chatsTotal = g.chats_ads + g.chats_admin;
     return {
       unit: g.unit,
       page: g.page,
       ad_spend: round2_(g.ad_spend),
       chats_ads: g.chats_ads,
       chats_admin: g.chats_admin,
-      cost_per_chat: chatsTotal ? round2_(g.ad_spend / chatsTotal) : 0,
+      // ต้นทุนทัก = ค่าแอด ÷ คนทักใหม่ฝั่งแอด เท่านั้น (ตรงกับสูตร "ต้นทุนต่อทัก" ในชีตต้นทาง) — ไม่บวก chats_admin
+      cost_per_chat: g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0,
       sales_total: round2_(g.sales_total),
       sales_new: round2_(g.sales_new),
       sales_old: round2_(g.sales_old),

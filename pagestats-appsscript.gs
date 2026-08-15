@@ -31,14 +31,37 @@ function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
     if (p.token !== TOKEN) throw new Error('Unauthorized');
-    var start = p.start, end = p.end;
-    if (!start || !end) throw new Error('missing start/end');
-    out = getPageStats(start, end, p.unit || '');
+    if (p.mode === 'units') {
+      out = getPageUnits();
+    } else {
+      var start = p.start, end = p.end;
+      if (!start || !end) throw new Error('missing start/end');
+      out = getPageStats(start, end, p.unit || '');
+    }
   } catch (err) {
     out = { error: err.message };
   }
   return ContentService.createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// รายชื่อยูนิตที่มีข้อมูลรายเพจจริงใน Staging Sheet (ไม่ใช่รายชื่อยูนิตทั้งหมดจากระบบยอดขายหลัก
+// data69 ที่มียูนิตเยอะกว่า) — ใช้เติม dropdown "หน่วย (Unit)" เฉพาะตอนอยู่แท็บ "สถิติรายเพจ"
+function getPageUnits() {
+  var sh = getSheet_();
+  var values = sh.getDataRange().getValues();
+  if (values.length < 2) return { units: [] };
+  var header = values[0];
+  var col = {};
+  header.forEach(function (h, i) { col[String(h).trim()] = i; });
+  if (!('unit' in col)) throw new Error('ไม่พบคอลัมน์ unit ในชีต');
+  var seen = {}, units = [];
+  for (var r = 1; r < values.length; r++) {
+    var u = String(values[r][col.unit] || '').trim();
+    if (u && !seen[u]) { seen[u] = true; units.push(u); }
+  }
+  units.sort();
+  return { units: units };
 }
 
 function getSheet_() {

@@ -448,8 +448,10 @@ function toggleSidebar(){document.querySelector('.side').classList.toggle('open'
 function closeSidebar(){document.querySelector('.side').classList.remove('open');el('sideBackdrop').classList.remove('open');}
 
 function switchView(v){
+  var prevView=view;
   view=v;
   closeSidebar();
+  if(v==='pages') enterPagesUnitMode(); else if(prevView==='pages') exitPagesUnitMode();
   el('navDaily').classList.toggle('on',v==='daily');
   el('navMonthly').classList.toggle('on',v==='monthly');
   el('navYearly').classList.toggle('on',v==='yearly');
@@ -609,14 +611,14 @@ function callPageApi(params,onSuccess,onError){
 function loadPageStats(){
   el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
   var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
-  var key=rd.start+'|'+rd.end+'|'+(curUnit||'');
+  var key=rd.start+'|'+rd.end+'|'+(curPageUnit||'');
   if(pageStatsCache[key]){
     try{ renderPageStats(pageStatsCache[key]); }catch(e){ delete pageStatsCache[key]; }
-    callPageApi({start:rd.start,end:rd.end,unit:curUnit||''},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(){});
+    callPageApi({start:rd.start,end:rd.end,unit:curPageUnit||''},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(){});
     return;
   }
   show(true);
-  callPageApi({start:rd.start,end:rd.end,unit:curUnit||''},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(err){show(false);renderPageStatsError(err.message);});
+  callPageApi({start:rd.start,end:rd.end,unit:curPageUnit||''},function(d){pageStatsCache[key]=d;renderPageStats(d);},function(err){show(false);renderPageStatsError(err.message);});
 }
 function renderPageStatsError(msg){
   el('pBody').innerHTML='<tr><td colspan="16" style="color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
@@ -1046,21 +1048,52 @@ function updateUnitBadge(){
   var b=el('unitBadge'); if(!b) return;
   b.style.display=(curUnit&&testUnitSet[curUnit])?'inline-block':'none';
 }
+function buildUnitHtml(units,testUnits){
+  units=units||[]; testUnits=testUnits||[];
+  var html='<option value="ทั้งหมด">ทั้งหมด (ยอดจริง)</option>';
+  if(units.length) html+='<optgroup label="หน่วยขายจริง">'+units.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
+  if(testUnits.length) html+='<optgroup label="หน่วยทดลอง (test)">'+testUnits.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
+  return html;
+}
+var mainUnitsHtml=null, mainUnitsReady=false;
+function onUnitPickChange(){
+  var v=el('unitPick').value;
+  if(view==='pages'){ curPageUnit=v; loadPageStats(); return; }
+  curUnit=v;monthlyCache=null;monthlyCacheFresh=false;el('monthPick').innerHTML='';updateUnitBadge();
+  if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else loadMonthly();
+}
 function setupUnit(units,testUnits){
-  var up=el('unitPick');
   units=units||[]; testUnits=testUnits||[];
   testUnitSet={}; testUnits.forEach(function(u){testUnitSet[u]=true;});
-  // แสดงตัวเลือกหน่วยเมื่อมีหน่วยจริงมากกว่า 1 หรือมีหน่วยทดลองให้เจาะดู
+  // แสดงตัวเลือกหน่วยเมื่อมีหน่วยจริงมากกว่า 1 หรือมีหน่วยทดลองให้เจาะดู (สร้าง dropdown ของมุมมองหลักแค่ครั้งเดียว)
   var shouldShow=units.length>1||testUnits.length>0;
-  if(shouldShow&&up.options.length===0){
-    el('unitLabel').style.display='block';up.style.display='block';
-    var html='<option value="ทั้งหมด">ทั้งหมด (ยอดจริง)</option>';
-    if(units.length) html+='<optgroup label="หน่วยขายจริง">'+units.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
-    if(testUnits.length) html+='<optgroup label="หน่วยทดลอง (test)">'+testUnits.map(function(u){return '<option>'+esc(u)+'</option>';}).join('')+'</optgroup>';
-    up.innerHTML=html;
-    up.onchange=function(){curUnit=up.value;monthlyCache=null;monthlyCacheFresh=false;el('monthPick').innerHTML='';updateUnitBadge();
-      if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else if(view==='pages')loadPageStats();else loadMonthly();};
+  if(shouldShow&&!mainUnitsReady){
+    mainUnitsReady=true;
+    mainUnitsHtml=buildUnitHtml(units,testUnits);
+    el('unitLabel').style.display='block';el('unitPick').style.display='block';
+    if(view!=='pages') el('unitPick').innerHTML=mainUnitsHtml;
+    el('unitPick').onchange=onUnitPickChange;
   }
+}
+
+/* ---------- dropdown "หน่วย (Unit)" ของแท็บสถิติรายเพจ: แสดงเฉพาะยูนิตที่มีข้อมูลรายเพจจริงใน
+   Staging Sheet (ไม่ใช่รายชื่อยูนิตทั้งหมดจากระบบยอดขายหลัก) — สลับกลับเป็นรายชื่อเดิมเมื่อออกจากแท็บนี้ ---------- */
+var curPageUnit='', pageUnitsHtml=null, pageUnitsCache=null;
+function loadPageUnitsList(cb){
+  if(pageUnitsCache){ cb(pageUnitsCache); return; }
+  callPageApi({mode:'units'},function(d){ pageUnitsCache=(d&&d.units)||[]; cb(pageUnitsCache); },function(){ cb([]); });
+}
+function enterPagesUnitMode(){
+  el('unitLabel').style.display='block';el('unitPick').style.display='block';
+  el('unitPick').onchange=onUnitPickChange;
+  if(pageUnitsHtml){ el('unitPick').innerHTML=pageUnitsHtml; el('unitPick').value=curPageUnit||'ทั้งหมด'; return; }
+  loadPageUnitsList(function(units){
+    pageUnitsHtml=buildUnitHtml(units,[]);
+    if(view==='pages'){ el('unitPick').innerHTML=pageUnitsHtml; el('unitPick').value=curPageUnit||'ทั้งหมด'; }
+  });
+}
+function exitPagesUnitMode(){
+  if(mainUnitsHtml){ el('unitPick').innerHTML=mainUnitsHtml; el('unitPick').value=curUnit||'ทั้งหมด'; }
 }
 
 el('datePick').addEventListener('change',function(){loadDaily(this.value);});

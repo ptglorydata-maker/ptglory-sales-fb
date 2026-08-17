@@ -357,9 +357,9 @@
     </section>
 
     <section id="viewPeople" class="hide">
-      <div class="panel" style="margin:0"><h3>สถิติรายคน</h3><div class="ph" id="peopleTablePh">สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
+      <div class="panel" style="margin:0"><h3>สถิติรายคน</h3><div class="ph" id="peopleTablePh">สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
         <div style="overflow-x:auto"><table style="min-width:1400px"><thead><tr>
-          <th>หน่วย</th><th style="text-align:left">เพจ</th><th style="text-align:left">แอดมิน</th><th>รวมคนทักใหม่ ADS</th><th>นับคนเข้าจริง ADMIN</th><th>% ERROR รายเพจ</th><th>ต้นทุนทัก รายเพจ</th>
+          <th style="text-align:left">แอดมิน</th><th style="text-align:left">หน่วย</th><th>จำนวนเพจที่ดูแล</th><th>รวมคนทักใหม่ ADS</th><th>นับคนเข้าจริง ADMIN</th><th>% ERROR เฉลี่ย</th><th>ต้นทุนทัก</th>
           <th>ยอดขายใหม่</th><th>ออเดอร์ใหม่</th><th>ยอดขายเก่า</th><th>ออเดอร์เก่า</th><th>ยอดขายรวม</th><th>ออเดอร์รวม</th>
           <th>% ปิดใหม่</th><th>เปอร์บิล</th>
         </tr></thead><tbody id="peopleBody"></tbody></table></div></div>
@@ -483,7 +483,7 @@ function switchView(v){
   if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='yearly'){ if(monthlyCache){ try{ renderYearly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='range'){ loadRange(); }
-  if(isPageLike){ loadPageStats(); }
+  if(v==='pages'){ loadPageStats(); } else if(v==='people'){ loadAdminStats(); }
 }
 
 /* ---------- USAGE (สถิติการใช้งานแดชบอร์ด — แสดงอัตโนมัติที่ท้าย sidebar ไม่ต้องกดเข้าดู) ---------- */
@@ -651,7 +651,7 @@ function renderPageStats(d){
   // แต่ถ้าเลือกหน่วย Test ตรงๆ จาก dropdown ก็ยังดูข้อมูลของหน่วยนั้นได้ตามปกติ
   if(showingAllUnits) rows=rows.filter(function(r){ return !isTestUnitName(r.unit); });
   var subLabel=d.start&&d.end?(d.start+' – '+d.end):'';
-  if(view==='pages'||view==='people'){ el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM(); }
+  if(view==='pages'){ el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM(); }
   var tot={ad_spend:0,chats_ads:0,chats_admin:0,sales_total:0,sales_new:0,sales_old:0,orders_total:0,orders_new:0,orders_old:0};
   rows.forEach(function(r){
     tot.ad_spend+=r.ad_spend||0;tot.chats_ads+=r.chats_ads||0;tot.chats_admin+=r.chats_admin||0;
@@ -669,7 +669,6 @@ function renderPageStats(d){
   el('pRoasMeta').innerHTML=roasNew!=null?('<span class="vs">ROAS ใหม่ '+roasNew.toFixed(2)+'</span>'):'';
   if(!rows.length){
     el('pBody').innerHTML='<tr><td colspan="17" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
-    el('peopleBody').innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
     return;
   }
   // เพจที่ไม่มียอดขาย หรือ inactive อยู่แล้ว ให้ตกไปกองรวมกันที่ล่างสุดของตารางทั้งหมด (ไม่ปนกับกลุ่มยูนิตที่มียอดจริง)
@@ -690,24 +689,6 @@ function renderPageStats(d){
   });
   var sortNote=(showingAllUnits?'เรียงตามยูนิตก่อน แล้วเรียงยอดขายรวมมากไปน้อยในยูนิตนั้น':'เรียงตามยอดขายรวมมากไปน้อย')+' (เพจที่ไม่มียอด/ปิดใช้งานกองรวมไว้ล่างสุด)';
   el('pTablePh').textContent='สรุปแต่ละเพจในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
-  el('peopleTablePh').textContent='สรุปแต่ละเพจพร้อมแอดมินผู้ดูแลในช่วงเวลาที่เลือก · '+sortNote+' (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
-  el('peopleBody').innerHTML=sortedRows.map(function(r){
-    return '<tr><td>'+esc(r.unit||'—')+'</td>'
-      +'<td style="text-align:left">'+esc(r.page)+'</td>'
-      +'<td style="text-align:left">'+esc(r.admin||'—')+'</td>'
-      +'<td class="num">'+int0(r.chats_ads)+'</td>'
-      +'<td class="num">'+int0(r.chats_admin)+'</td>'
-      +'<td class="num">'+num1(r.error_pct,'%')+'</td>'
-      +'<td class="num">'+cspan(baht(r.cost_per_chat),'cost_inbox',r.cost_per_chat)+'</td>'
-      +'<td class="num">'+baht(r.sales_new)+'</td>'
-      +'<td class="num">'+int0(r.orders_new)+'</td>'
-      +'<td class="num">'+baht(r.sales_old)+'</td>'
-      +'<td class="num">'+int0(r.orders_old)+'</td>'
-      +'<td class="num">'+baht(r.sales_total)+'</td>'
-      +'<td class="num">'+int0(r.orders_total)+'</td>'
-      +'<td class="num">'+cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+'</td>'
-      +'<td class="num">'+baht(r.aov)+'</td></tr>';
-  }).join('');
   el('pBody').innerHTML=sortedRows.map(function(r){
     return '<tr><td>'+esc(r.unit||'—')+'</td>'
       +'<td style="text-align:left">'+esc(r.page)+'</td>'
@@ -726,6 +707,56 @@ function renderPageStats(d){
       +'<td class="num">'+cspan(num1(r.roas_new),'roas',r.roas_new)+'</td>'
       +'<td class="num">'+cspan(num1(r.roas_total),'roas',r.roas_total)+'</td>'
       +'<td class="num">'+num1(r.error_pct,'%')+'</td></tr>';
+  }).join('');
+}
+
+/* ---------- ADMINS (สถิติรายคน) — group ตามชื่อแอดมิน รวมทุกเพจที่ดูแล ใช้ Staging Sheet เดียวกับสถิติรายเพจ ---------- */
+var adminStatsCache={};
+function loadAdminStats(){
+  el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
+  var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
+  var key=rd.start+'|'+rd.end+'|'+(curPageUnit||'');
+  if(adminStatsCache[key]){
+    try{ renderAdminStats(adminStatsCache[key]); }catch(e){ delete adminStatsCache[key]; }
+    callPageApi({mode:'admin_stats',start:rd.start,end:rd.end,unit:curPageUnit||''},function(d){adminStatsCache[key]=d;renderAdminStats(d);},function(){});
+    return;
+  }
+  show(true);
+  callPageApi({mode:'admin_stats',start:rd.start,end:rd.end,unit:curPageUnit||''},function(d){adminStatsCache[key]=d;renderAdminStats(d);},function(err){show(false);renderAdminStatsError(err.message);});
+}
+function renderAdminStatsError(msg){
+  el('peopleBody').innerHTML='<tr><td colspan="15" style="color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
+}
+function renderAdminStats(d){
+  show(false);
+  if(d.error){ renderAdminStatsError(d.error); return; }
+  var rows=d.rows||[];
+  var subLabel=d.start&&d.end?(d.start+' – '+d.end):'';
+  el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM();
+  if(!rows.length){
+    el('peopleBody').innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
+    el('peopleTablePh').textContent='สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · ไม่มีข้อมูลในช่วงนี้';
+    return;
+  }
+  var sortedRows=rows.slice().sort(function(a,b){ return (b.sales_total||0)-(a.sales_total||0); });
+  el('peopleTablePh').textContent='สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
+  el('peopleBody').innerHTML=sortedRows.map(function(r){
+    var pageList=(r.pages||[]).join(', ');
+    return '<tr><td style="text-align:left">'+esc(r.admin||'—')+'</td>'
+      +'<td style="text-align:left">'+esc((r.units||[]).join(', ')||'—')+'</td>'
+      +'<td class="num" title="'+esc(pageList)+'">'+int0(r.pageCount)+'</td>'
+      +'<td class="num">'+int0(r.chats_ads)+'</td>'
+      +'<td class="num">'+int0(r.chats_admin)+'</td>'
+      +'<td class="num">'+num1(r.error_pct,'%')+'</td>'
+      +'<td class="num">'+cspan(baht(r.cost_per_chat),'cost_inbox',r.cost_per_chat)+'</td>'
+      +'<td class="num">'+baht(r.sales_new)+'</td>'
+      +'<td class="num">'+int0(r.orders_new)+'</td>'
+      +'<td class="num">'+baht(r.sales_old)+'</td>'
+      +'<td class="num">'+int0(r.orders_old)+'</td>'
+      +'<td class="num">'+baht(r.sales_total)+'</td>'
+      +'<td class="num">'+int0(r.orders_total)+'</td>'
+      +'<td class="num">'+cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+'</td>'
+      +'<td class="num">'+baht(r.aov)+'</td></tr>';
   }).join('');
 }
 
@@ -1118,7 +1149,7 @@ function buildUnitHtml(units,testUnits){
 var mainUnitsHtml=null, mainUnitsReady=false;
 function onUnitPickChange(){
   var v=el('unitPick').value;
-  if(view==='pages'){ curPageUnit=v; loadPageStats(); return; }
+  if(view==='pages'||view==='people'){ curPageUnit=v; if(view==='pages') loadPageStats(); else loadAdminStats(); return; }
   curUnit=v;monthlyCache=null;monthlyCacheFresh=false;el('monthPick').innerHTML='';updateUnitBadge();
   if(view==='daily')loadDaily(el('datePick').value);else if(view==='range')loadRange();else loadMonthly();
 }
@@ -1160,9 +1191,10 @@ el('datePick').addEventListener('change',function(){loadDaily(this.value);});
 el('rangePick').addEventListener('change',loadRange);
 el('rangeStart').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
 el('rangeEnd').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
-el('rangePick2').addEventListener('change',loadPageStats);
-el('rangeStart2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
-el('rangeEnd2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
+function loadPageOrAdminStats(){ if(view==='people') loadAdminStats(); else loadPageStats(); }
+el('rangePick2').addEventListener('change',loadPageOrAdminStats);
+el('rangeStart2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageOrAdminStats();});
+el('rangeEnd2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageOrAdminStats();});
 el('refreshBtn').addEventListener('click',function(){
   if(view==='daily')loadDaily(el('datePick').value,true);
   else if(view==='range')loadRange();

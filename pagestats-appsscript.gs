@@ -21,6 +21,10 @@
  * ถ้าสูตรจริงของ close_rate_new / error_pct ต่างจากนี้ ให้แก้ในฟังก์ชัน getPageStats() ด้านล่าง
  * - admin/active ใช้ค่าจากแถววันที่ล่าสุดในช่วงที่เลือก (ไม่ได้รวม/เฉลี่ย เพราะเป็นข้อความ/สถานะ)
  * - aov (เปอร์บิล) คำนวณจากยอดรวมช่วง (sales_new/orders_new) เหมือน cost_per_chat ไม่ใช่ค่าเฉลี่ยรายวัน
+ *
+ * "สถิติรายแอดมิน" (mode=admin_stats, ฟังก์ชัน getAdminStats()) ใช้ชีต/สูตรเดียวกันทุกอย่าง แต่ group
+ * ตามชื่อแอดมินแทนเพจ — รวมยอดของแอดมินคนเดียวกันที่ดูแลหลายเพจ/หลายยูนิตเข้าด้วยกัน แถวที่ไม่มี
+ * ชื่อแอดมินจะไม่ถูกนับ (ไม่รู้ว่าเป็นของใคร)
  */
 
 // ===== CONFIG: แก้ตรงนี้ก่อน deploy =====
@@ -35,6 +39,10 @@ function doGet(e) {
     if (p.token !== TOKEN) throw new Error('Unauthorized');
     if (p.mode === 'units') {
       out = getPageUnits();
+    } else if (p.mode === 'admin_stats') {
+      var startA = p.start, endA = p.end;
+      if (!startA || !endA) throw new Error('missing start/end');
+      out = getAdminStats(startA, endA, p.unit || '');
     } else {
       var start = p.start, end = p.end;
       if (!start || !end) throw new Error('missing start/end');
@@ -155,6 +163,104 @@ function getPageStats(start, end, unitFilter) {
       chats_ads: g.chats_ads,
       chats_admin: g.chats_admin,
       // ต้นทุนทัก = ค่าแอด ÷ คนทักใหม่ฝั่งแอด เท่านั้น (ตรงกับสูตร "ต้นทุนต่อทัก" ในชีตต้นทาง) — ไม่บวก chats_admin
+      cost_per_chat: g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0,
+      sales_total: round2_(g.sales_total),
+      sales_new: round2_(g.sales_new),
+      sales_old: round2_(g.sales_old),
+      orders_total: round2_(g.orders_total),
+      orders_new: round2_(g.orders_new),
+      orders_old: round2_(g.orders_old),
+      close_rate_new: g.closeWeight ? round2_(g.closeWeighted / g.closeWeight) : 0,
+      ads_pct: g.sales_total ? round2_(g.ad_spend / g.sales_total * 100) : 0,
+      roas_new: g.ad_spend ? round2_(g.sales_new / g.ad_spend) : 0,
+      roas_total: g.ad_spend ? round2_(g.sales_total / g.ad_spend) : 0,
+      error_pct: g.errCount ? round2_(g.errSum / g.errCount) : 0
+    };
+  });
+  result.sort(function (a, b) { return b.sales_total - a.sales_total; });
+
+  return { rows: result, start: start, end: end };
+}
+
+// สถิติรายแอดมิน — เหมือน getPageStats() ทุกประการ (ใช้ชีต/คอลัมน์ต้นทางเดียวกัน) แต่ group
+// ตาม "admin" แทน "unit|page" เพื่อรวมยอดของแอดมินคนเดียวกันที่อาจดูแลหลายเพจ/หลายยูนิตเข้าด้วยกัน
+// แถวที่ไม่มีชื่อแอดมิน (ว่าง) จะไม่ถูกนับ เพราะไม่รู้ว่าเป็นของใคร
+function getAdminStats(start, end, unitFilter) {
+  var sh = getSheet_();
+  var values = sh.getDataRange().getValues();
+  if (values.length < 2) return { rows: [], start: start, end: end };
+
+  var header = values[0];
+  var col = {};
+  header.forEach(function (h, i) { col[String(h).trim()] = i; });
+
+  var need = ['date', 'unit', 'page', 'admin', 'ad_spend', 'chats_ads', 'chats_admin',
+    'sales_total', 'sales_new', 'sales_old', 'orders_total', 'orders_new', 'orders_old',
+    'close_rate_new', 'error_pct'];
+  need.forEach(function (k) { if (!(k in col)) throw new Error('ไม่พบคอลัมน์ในชีต: ' + k); });
+
+  var startD = new Date(start + 'T00:00:00');
+  var endD = new Date(end + 'T23:59:59');
+  var byAdmin = {}; // key = ชื่อแอดมิน
+
+  for (var r = 1; r < values.length; r++) {
+    var row = values[r];
+    var d = row[col.date];
+    var dt = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(dt) || dt < startD || dt > endD) continue;
+
+    var unit = String(row[col.unit] || '').trim();
+    var page = String(row[col.page] || '').trim();
+    var admin = String(row[col.admin] || '').trim();
+    if (!page || !admin) continue;
+    if (unitFilter && unitFilter !== 'ทั้งหมด' && unit !== unitFilter) continue;
+
+    if (!byAdmin[admin]) {
+      byAdmin[admin] = {
+        admin: admin, units: {}, pages: {},
+        ad_spend: 0, chats_ads: 0, chats_admin: 0,
+        sales_total: 0, sales_new: 0, sales_old: 0,
+        orders_total: 0, orders_new: 0, orders_old: 0,
+        closeWeighted: 0, closeWeight: 0,
+        errSum: 0, errCount: 0
+      };
+    }
+    var g = byAdmin[admin];
+    if (unit) g.units[unit] = true;
+    g.pages[unit + '|' + page] = page;
+    g.ad_spend += num_(row[col.ad_spend]);
+    g.chats_ads += num_(row[col.chats_ads]);
+    g.chats_admin += num_(row[col.chats_admin]);
+    g.sales_total += num_(row[col.sales_total]);
+    g.sales_new += num_(row[col.sales_new]);
+    g.sales_old += num_(row[col.sales_old]);
+    g.orders_total += num_(row[col.orders_total]);
+    g.orders_new += num_(row[col.orders_new]);
+    g.orders_old += num_(row[col.orders_old]);
+
+    var dailyChatsAds = num_(row[col.chats_ads]);
+    var closeVal = pct_(row[col.close_rate_new]);
+    if (!isNaN(closeVal) && dailyChatsAds > 0) {
+      g.closeWeighted += closeVal * dailyChatsAds;
+      g.closeWeight += dailyChatsAds;
+    }
+    var errVal = pct_(row[col.error_pct]);
+    if (!isNaN(errVal)) { g.errSum += errVal; g.errCount++; }
+  }
+
+  var result = Object.keys(byAdmin).map(function (k) {
+    var g = byAdmin[k];
+    var pageNames = Object.keys(g.pages).map(function (pk) { return g.pages[pk]; }).sort();
+    return {
+      admin: g.admin,
+      units: Object.keys(g.units).sort(),
+      pageCount: pageNames.length,
+      pages: pageNames,
+      // เปอร์บิล = ยอดขายใหม่ ÷ ออเดอร์ใหม่ (สูตรเดียวกับสถิติรายเพจ)
+      aov: g.orders_new ? round2_(g.sales_new / g.orders_new) : 0,
+      ad_spend: round2_(g.ad_spend),
+      chats_ads: g.chats_ads,
+      chats_admin: g.chats_admin,
       cost_per_chat: g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0,
       sales_total: round2_(g.sales_total),
       sales_new: round2_(g.sales_new),

@@ -205,6 +205,12 @@
 
       <label id="unitLabel" style="display:none">หน่วย (Unit)</label>
       <select id="unitPick" style="display:none; background-color: white; color: #333333;"></select>
+      <div id="ctrlPeopleAdmin" class="hide">
+        <label>เลือกแอดมิน</label>
+        <select id="adminPick" style="background-color:white;color:#333333">
+          <option value="">ทั้งหมด</option>
+        </select>
+      </div>
       <button class="btn" id="refreshBtn" style="display:none; background-color: white; color: #333333">รีเฟรชข้อมูล</button>
     </div>
     <div class="foot"><span id="footUpdated">กำลังโหลด…</span><br><span id="footUsage" style="display:none">👥 ผู้ใช้งาน: วันนี้ <span id="uToday">—</span> · เดือนนี้ <span id="uMonth">—</span> · ปีนี้ <span id="uYear">—</span></span><br><span id="loggedInAs"></span> <button class="logoutBtn" onclick="doLogout()">ออกจากระบบ</button></div>
@@ -357,6 +363,12 @@
     </section>
 
     <section id="viewPeople" class="hide">
+      <div class="grid row-hero hide" id="peopleAdminHero" style="margin-bottom:15px">
+        <div class="card hero"><div class="lbl">ยอดขายรวม</div><div class="big num" id="paSales">—</div><div id="paSalesMeta"></div></div>
+        <div class="card"><div class="lbl">ต้นทุนทัก</div><div class="big sm num" id="paCost">—</div><div id="paCostMeta"></div></div>
+        <div class="card"><div class="lbl">% ปิดใหม่ · เปอร์บิล</div><div class="big sm num" id="paCloseAov">—</div><div id="paOrdersMeta"></div></div>
+      </div>
+      <div class="panel hide" id="peopleAdminPages" style="margin:0 0 15px"><div class="ph" style="margin-bottom:0" id="peopleAdminPagesText"></div></div>
       <div class="panel" style="margin:0"><h3>สถิติรายคน</h3><div class="ph" id="peopleTablePh">สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
         <div style="overflow-x:auto"><table style="min-width:1400px"><thead><tr>
           <th style="text-align:left">แอดมิน</th><th style="text-align:left">หน่วย</th><th>จำนวนเพจที่ดูแล</th><th>รวมคนทักใหม่ ADS</th><th>นับคนเข้าจริง ADMIN</th><th>% ERROR เฉลี่ย</th><th>ต้นทุนทัก</th>
@@ -479,6 +491,7 @@ function switchView(v){
   el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('ctrlRange').classList.toggle('hide',v!=='range');
   el('ctrlPages').classList.toggle('hide',!isPageLike);
+  el('ctrlPeopleAdmin').classList.toggle('hide',v!=='people');
   el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':(v==='pages'?'สถิติรายเพจ':(v==='people'?'สถิติรายคน':'สรุปยอดขายตามช่วงเวลา'))));
   if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
   if(v==='yearly'){ if(monthlyCache){ try{ renderYearly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
@@ -712,6 +725,8 @@ function renderPageStats(d){
 
 /* ---------- ADMINS (สถิติรายคน) — group ตามชื่อแอดมิน รวมทุกเพจที่ดูแล ใช้ Staging Sheet เดียวกับสถิติรายเพจ ---------- */
 var adminStatsCache={};
+var adminStatsRows=[]; // แถวล่าสุดที่โหลดมา (ทุกแอดมิน) เก็บไว้ให้ dropdown "เลือกแอดมิน" กรองแบบ client-side ไม่ต้องยิง API ซ้ำ
+var curAdminFilter='';
 function loadAdminStats(){
   el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
   var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
@@ -727,19 +742,54 @@ function loadAdminStats(){
 function renderAdminStatsError(msg){
   el('peopleBody').innerHTML='<tr><td colspan="15" style="color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
 }
+// เติม dropdown "เลือกแอดมิน" จากรายชื่อแอดมินที่มีอยู่จริงในข้อมูลที่โหลดมา (คงค่าที่เลือกไว้ถ้ายังมีอยู่)
+function buildAdminPick(rows){
+  var names=rows.map(function(r){ return r.admin; }).filter(Boolean).sort(function(a,b){ return a.localeCompare(b,'th'); });
+  var keep=names.indexOf(curAdminFilter)>=0?curAdminFilter:'';
+  curAdminFilter=keep;
+  el('adminPick').innerHTML='<option value="">ทั้งหมด</option>'+names.map(function(n){ return '<option'+(n===keep?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+}
+function onAdminPickChange(){
+  curAdminFilter=el('adminPick').value;
+  renderAdminTable(adminStatsRows);
+}
 function renderAdminStats(d){
   show(false);
   if(d.error){ renderAdminStatsError(d.error); return; }
   var rows=d.rows||[];
+  adminStatsRows=rows;
   var subLabel=d.start&&d.end?(d.start+' – '+d.end):'';
   el('subDate').textContent=subLabel; el('updated').textContent=nowBangkokHM();
+  buildAdminPick(rows);
   if(!rows.length){
+    el('peopleAdminHero').classList.add('hide'); el('peopleAdminPages').classList.add('hide');
     el('peopleBody').innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
     el('peopleTablePh').textContent='สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · ไม่มีข้อมูลในช่วงนี้';
     return;
   }
-  var sortedRows=rows.slice().sort(function(a,b){ return (b.sales_total||0)-(a.sales_total||0); });
-  el('peopleTablePh').textContent='สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
+  renderAdminTable(rows);
+}
+function renderAdminTable(rows){
+  var filtered=curAdminFilter?rows.filter(function(r){ return r.admin===curAdminFilter; }):rows;
+  var sortedRows=filtered.slice().sort(function(a,b){ return (b.sales_total||0)-(a.sales_total||0); });
+  if(curAdminFilter&&sortedRows.length){
+    var r=sortedRows[0];
+    el('peopleAdminHero').classList.remove('hide');
+    el('paSales').textContent=baht(r.sales_total);
+    el('paSalesMeta').innerHTML='ยอดใหม่ '+baht(r.sales_new)+' · ยอดเก่า '+baht(r.sales_old);
+    el('paCost').textContent=baht(r.cost_per_chat);
+    el('paCostMeta').innerHTML='<span class="vs">รวมคนทักใหม่ ADS '+int0(r.chats_ads)+' · นับคนเข้าจริง ADMIN '+int0(r.chats_admin)+' · %ERROR '+num1(r.error_pct,'%')+'</span>';
+    el('paCloseAov').innerHTML=cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+' · '+baht(r.aov);
+    el('paOrdersMeta').innerHTML='<span class="vs">ออเดอร์ใหม่ '+int0(r.orders_new)+' · เก่า '+int0(r.orders_old)+' · รวม '+int0(r.orders_total)+'</span>';
+    el('peopleAdminPages').classList.remove('hide');
+    el('peopleAdminPagesText').textContent='ดูแล '+int0(r.pageCount)+' เพจ ('+((r.units||[]).join(', ')||'—')+'): '+((r.pages||[]).join(', ')||'—');
+  } else {
+    el('peopleAdminHero').classList.add('hide');
+    el('peopleAdminPages').classList.add('hide');
+  }
+  el('peopleTablePh').textContent=curAdminFilter
+    ?('แสดงเฉพาะแอดมิน '+curAdminFilter+' (เลือก "ทั้งหมด" เพื่อดูทุกคน)')
+    :'สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
   el('peopleBody').innerHTML=sortedRows.map(function(r){
     var pageList=(r.pages||[]).join(', ');
     return '<tr><td style="text-align:left">'+esc(r.admin||'—')+'</td>'
@@ -1192,6 +1242,7 @@ el('rangePick').addEventListener('change',loadRange);
 el('rangeStart').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
 el('rangeEnd').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
 function loadPageOrAdminStats(){ if(view==='people') loadAdminStats(); else loadPageStats(); }
+el('adminPick').addEventListener('change',onAdminPickChange);
 el('rangePick2').addEventListener('change',loadPageOrAdminStats);
 el('rangeStart2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageOrAdminStats();});
 el('rangeEnd2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageOrAdminStats();});

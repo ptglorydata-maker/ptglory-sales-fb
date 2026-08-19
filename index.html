@@ -384,13 +384,15 @@
         <div class="kpi"><div class="lbl">% ปิดใหม่</div><div class="big num" id="paCloseNew">—</div><div class="sub">ทักใหม่ → ปิดจริง</div></div>
       </div>
       <div class="grid hide" id="peopleAdminKpis2" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
-        <div class="kpi pending">
-          <div class="lbl">% ปิดการขาย (รวม) <span class="tag a">รอเชื่อมข้อมูล</span></div>
-          <div style="font-size:13px;color:var(--faint);margin-top:6px">ยังไม่มีคอลัมน์นี้ในชีตต้นทาง</div>
+        <div class="kpi" id="paCloseTotalCard">
+          <div class="lbl">% ปิดการขาย (รวม) <span class="tag a" id="paCloseTotalTag" style="display:none">รอเชื่อมข้อมูล</span></div>
+          <div class="big num" id="paCloseTotal">—</div>
+          <div class="sub" id="paCloseTotalSub"></div>
         </div>
-        <div class="kpi pending">
-          <div class="lbl">% ตีกลับ <span class="tag a">รอเชื่อมข้อมูล</span></div>
-          <div style="font-size:13px;color:var(--faint);margin-top:6px">ยังไม่มีคอลัมน์นี้ในชีตต้นทาง</div>
+        <div class="kpi" id="paBounceCard">
+          <div class="lbl">% ตีกลับ <span class="tag a" id="paBounceTag" style="display:none">รอเชื่อมข้อมูล</span></div>
+          <div class="big num" id="paBounce">—</div>
+          <div class="sub" id="paBounceSub"></div>
         </div>
         <div class="kpi"><div class="lbl">จำนวนเพจที่ดูแล</div><div class="big num" id="paPageCount">—</div><div class="sub" id="paUnitList"></div></div>
       </div>
@@ -809,12 +811,33 @@ function renderAdminStats(d){
     el('peopleTablePh').textContent='สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · ไม่มีข้อมูลในช่วงนี้';
     return;
   }
-  renderAdminTable(rows,d.daily||null);
+  renderAdminTable(rows,d.daily||null,d.kpi||null);
 }
 function hideAdminDetail(){
   ['peopleAdminHero','peopleAdminKpis1','peopleAdminKpis2','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.add('hide'); });
 }
-function renderAdminTable(rows,daily){
+// การ์ด % ปิดการขาย(รวม) / % ตีกลับ — มาจากไฟล์ KPI แยกต่างหาก join ด้วยรหัสพนักงาน อาจไม่พบข้อมูลได้ (คนใหม่/ไม่มีในไฟล์)
+function renderKpiCard(cardId,valId,tagId,subId,monthKey,kpi){
+  var card=el(cardId),tag=el(tagId),sub=el(subId),val=el(valId);
+  if(!kpi||!kpi.found||!kpi.months||!kpi.months.length){
+    card.classList.add('pending');
+    val.textContent='—';
+    tag.style.display='';
+    sub.textContent=kpi&&kpi.reason?kpi.reason:'ไม่พบข้อมูลของแอดมินคนนี้ในไฟล์ KPI';
+    return;
+  }
+  card.classList.remove('pending');
+  tag.style.display='none';
+  var months=kpi.months,last=months[months.length-1];
+  var lastVal=last[monthKey];
+  val.innerHTML=(lastVal==null)?'—':cspan(num1(lastVal,'%'),monthKey==='close_rate_total'?'close':'',lastVal);
+  if(months.length>1){
+    sub.textContent=months.map(function(m){ return m.label+' '+(m[monthKey]==null?'—':num1(m[monthKey],'%')); }).join(' · ');
+  } else {
+    sub.textContent=last.label;
+  }
+}
+function renderAdminTable(rows,daily,kpi){
   var filtered=curAdminFilter?rows.filter(function(r){ return r.admin===curAdminFilter; }):rows;
   var sortedRows=filtered.slice().sort(function(a,b){ return (b.sales_total||0)-(a.sales_total||0); });
   if(curAdminFilter&&sortedRows.length){
@@ -840,6 +863,9 @@ function renderAdminTable(rows,daily){
     el('paCloseNew').innerHTML=cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new);
     el('paPageCount').textContent=int0(r.pageCount)+' เพจ';
     el('paUnitList').textContent=(r.units||[]).join(', ')||'—';
+    // % ปิดการขาย(รวม) / % ตีกลับ — มาจากไฟล์ KPI แยกต่างหาก (join ด้วยรหัสพนักงาน)
+    renderKpiCard('paCloseTotalCard','paCloseTotal','paCloseTotalTag','paCloseTotalSub','close_rate_total',kpi);
+    renderKpiCard('paBounceCard','paBounce','paBounceTag','paBounceSub','bounce_rate',kpi);
     // เพจที่ดูแลทั้งหมด — แสดงเป็น chip แทนข้อความยาวบรรทัดเดียว
     el('peopleAdminPagesPh').textContent=int0(r.pageCount)+' เพจ ในช่วงเวลาที่เลือก';
     var pageChips=(r.pages||[]).map(function(p){

@@ -24,7 +24,8 @@
  *
  * "สถิติรายแอดมิน" (mode=admin_stats, ฟังก์ชัน getAdminStats()) ใช้ชีต/สูตรเดียวกันทุกอย่าง แต่ group
  * ตามชื่อแอดมินแทนเพจ — รวมยอดของแอดมินคนเดียวกันที่ดูแลหลายเพจ/หลายยูนิตเข้าด้วยกัน แถวที่ไม่มี
- * ชื่อแอดมินจะไม่ถูกนับ (ไม่รู้ว่าเป็นของใคร)
+ * ชื่อแอดมินจะไม่ถูกนับ (ไม่รู้ว่าเป็นของใคร) — ถ้าส่ง query param "admin" มาด้วย จะได้ "daily"
+ * เพิ่มในผลลัพธ์ (ยอดขายรวมรายวันเฉพาะของแอดมินคนนั้น สำหรับกราฟแนวโน้มในหน้า detail)
  */
 
 // ===== CONFIG: แก้ตรงนี้ก่อน deploy =====
@@ -42,7 +43,7 @@ function doGet(e) {
     } else if (p.mode === 'admin_stats') {
       var startA = p.start, endA = p.end;
       if (!startA || !endA) throw new Error('missing start/end');
-      out = getAdminStats(startA, endA, p.unit || '');
+      out = getAdminStats(startA, endA, p.unit || '', p.admin || '');
     } else {
       var start = p.start, end = p.end;
       if (!start || !end) throw new Error('missing start/end');
@@ -185,10 +186,12 @@ function getPageStats(start, end, unitFilter) {
 // สถิติรายแอดมิน — เหมือน getPageStats() ทุกประการ (ใช้ชีต/คอลัมน์ต้นทางเดียวกัน) แต่ group
 // ตาม "admin" แทน "unit|page" เพื่อรวมยอดของแอดมินคนเดียวกันที่อาจดูแลหลายเพจ/หลายยูนิตเข้าด้วยกัน
 // แถวที่ไม่มีชื่อแอดมิน (ว่าง) จะไม่ถูกนับ เพราะไม่รู้ว่าเป็นของใคร
-function getAdminStats(start, end, unitFilter) {
+// ถ้าส่ง adminFilter มาด้วย จะคืน "daily" เพิ่ม — ยอดขายรวมรายวันเฉพาะของแอดมินคนนั้น
+// (ใช้วาดกราฟแนวโน้มรายวันในหน้า detail โดยไม่ต้องดึงทุกแถวมาที่ฝั่งเว็บ)
+function getAdminStats(start, end, unitFilter, adminFilter) {
   var sh = getSheet_();
   var values = sh.getDataRange().getValues();
-  if (values.length < 2) return { rows: [], start: start, end: end };
+  if (values.length < 2) return { rows: [], daily: null, start: start, end: end };
 
   var header = values[0];
   var col = {};
@@ -202,6 +205,7 @@ function getAdminStats(start, end, unitFilter) {
   var startD = new Date(start + 'T00:00:00');
   var endD = new Date(end + 'T23:59:59');
   var byAdmin = {}; // key = ชื่อแอดมิน
+  var byDate = adminFilter ? {} : null; // key = 'YYYY-MM-DD' เฉพาะตอนมี adminFilter
 
   for (var r = 1; r < values.length; r++) {
     var row = values[r];
@@ -214,6 +218,11 @@ function getAdminStats(start, end, unitFilter) {
     var admin = String(row[col.admin] || '').trim();
     if (!page || !admin) continue;
     if (unitFilter && unitFilter !== 'ทั้งหมด' && unit !== unitFilter) continue;
+
+    if (byDate && admin === adminFilter) {
+      var dateKey = Utilities.formatDate(dt, Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd');
+      byDate[dateKey] = (byDate[dateKey] || 0) + num_(row[col.sales_total]);
+    }
 
     if (!byAdmin[admin]) {
       byAdmin[admin] = {
@@ -256,8 +265,10 @@ function getAdminStats(start, end, unitFilter) {
       units: Object.keys(g.units).sort(),
       pageCount: pageNames.length,
       pages: pageNames,
-      // เปอร์บิล = ยอดขายใหม่ ÷ ออเดอร์ใหม่ (สูตรเดียวกับสถิติรายเพจ)
+      // เปอร์บิลใหม่ = ยอดขายใหม่ ÷ ออเดอร์ใหม่ (สูตรเดียวกับสถิติรายเพจ)
       aov: g.orders_new ? round2_(g.sales_new / g.orders_new) : 0,
+      // เปอร์บิลรวม = ยอดขายรวม ÷ ออเดอร์รวม (คำนวณเพิ่มจากข้อมูลเดิม ไม่ต้องเพิ่มคอลัมน์ในชีต)
+      aov_total: g.orders_total ? round2_(g.sales_total / g.orders_total) : 0,
       ad_spend: round2_(g.ad_spend),
       chats_ads: g.chats_ads,
       chats_admin: g.chats_admin,
@@ -277,7 +288,14 @@ function getAdminStats(start, end, unitFilter) {
   });
   result.sort(function (a, b) { return b.sales_total - a.sales_total; });
 
-  return { rows: result, start: start, end: end };
+  var dailySeries = null;
+  if (byDate) {
+    dailySeries = Object.keys(byDate).sort().map(function (dk) {
+      return { date: dk, sales_total: round2_(byDate[dk]) };
+    });
+  }
+
+  return { rows: result, daily: dailySeries, start: start, end: end };
 }
 
 function num_(v) {

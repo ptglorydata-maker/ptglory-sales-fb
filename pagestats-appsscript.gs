@@ -26,11 +26,25 @@
  * ตามชื่อแอดมินแทนเพจ — รวมยอดของแอดมินคนเดียวกันที่ดูแลหลายเพจ/หลายยูนิตเข้าด้วยกัน แถวที่ไม่มี
  * ชื่อแอดมินจะไม่ถูกนับ (ไม่รู้ว่าเป็นของใคร) — ถ้าส่ง query param "admin" มาด้วย จะได้ "daily"
  * เพิ่มในผลลัพธ์ (ยอดขายรวมรายวันเฉพาะของแอดมินคนนั้น สำหรับกราฟแนวโน้มในหน้า detail)
+ *
+ * "kpi" (% ปิดการขาย / % ตีกลับ รายคน) — มาจากไฟล์คนละไฟล์กับ Staging Sheet นี้ 2 ไฟล์:
+ *   1) ไฟล์รายชื่อ "test-รายงานเพจ FB" (master catalog เดียวกับที่ etl/sync_pages.py อ่าน "แอดมิน" มาใส่ Staging)
+ *      มีคอลัมน์ แอดมิน (ชื่อเล่น) / รหัสพนักงาน / ชื่อเต็มแอดมิน — ใช้แค่ แอดมิน→รหัสพนักงาน
+ *   2) ไฟล์ "KPI ฝ่ายขาย FB 2569" แท็บ "KPI แอดมิน" — มีบล็อกข้อมูลแยกทีละเดือน (ม.ค.69 เริ่มคอลัมน์ AB
+ *      ขยับไปทางขวาเรื่อยๆ ทุกเดือน) แต่ละบล็อกมีคอลัมน์ "รหัสพนักงาน", "%ปิดการขาย", "% ตีกลับ" —
+ *      หาตำแหน่งคอลัมน์จากข้อความหัวตารางจริงเสมอ (ไม่ hardcode ตัวอักษรคอลัมน์) เพราะบล็อกอาจขยับ/
+ *      เปลี่ยนความกว้างได้เหมือนที่เจอปัญหานี้มาแล้วกับไฟล์รายเพจ (ดู etl/README.md)
+ *   จับคู่คนด้วย "รหัสพนักงาน" (แม่นกว่าจับคู่ด้วยชื่อเต็มที่เสี่ยงสะกด/วรรคไม่ตรงกัน)
+ *   ทั้ง 2 ไฟล์นี้ Apps Script อ่านได้เพราะรันด้วยบัญชี Google ของคนที่ deploy เอง ("Execute as: Me")
+ *   ตราบใดที่บัญชีนั้นมีสิทธิ์เข้าไฟล์ทั้งสอง — ไม่เกี่ยวกับ service account ที่ etl/sync_pages.py ใช้
  */
 
 // ===== CONFIG: แก้ตรงนี้ก่อน deploy =====
 var TOKEN = 'glory_pg_0922541941'; // ต้องตรงกับ PAGE_API_TOKEN ใน index.html
 var SHEET_GID = 851624242; // แท็บ "staging_รายเพจ" (จาก URL ...?gid=851624242)
+var ROSTER_SHEET_ID = '1vjZ2ERd1Q-OAX5yYOgDztemVuF4samjSE5BXZ5snprA'; // "test-รายงานเพจ FB" (master catalog)
+var KPI_SHEET_ID = '1a7Z1U3FouP7GeFMQ0D8yKUQOd9ZMgkJGxh0PFBLt5g0'; // "KPI ฝ่ายขาย FB 2569 (PT GLORY)"
+var KPI_TAB_GID = 1293185359; // แท็บ "KPI แอดมิน"
 // ==========================================
 
 function doGet(e) {
@@ -295,7 +309,122 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     });
   }
 
-  return { rows: result, daily: dailySeries, start: start, end: end };
+  var kpi = null;
+  if (adminFilter) {
+    try { kpi = getAdminKpi_(adminFilter, start, end); }
+    catch (kpiErr) { kpi = { found: false, reason: 'โหลดข้อมูล KPI ไม่สำเร็จ: ' + kpiErr.message }; }
+  }
+
+  return { rows: result, daily: dailySeries, kpi: kpi, start: start, end: end };
+}
+
+// ===== % ปิดการขาย (รวม) / % ตีกลับ — อ่านจากไฟล์รายชื่อ + ไฟล์ KPI คนละไฟล์กับ Staging Sheet =====
+
+var THAI_MONTHS_ = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+// ชื่อเล่นแอดมิน (คอลัมน์ "แอดมิน" ในไฟล์รายชื่อ ตรงกับ Staging.admin เป๊ะๆ เพราะ ETL ดึงมาจากไฟล์เดียวกันนี้) → รหัสพนักงาน
+function getRosterMap_() {
+  var ss = SpreadsheetApp.openById(ROSTER_SHEET_ID);
+  var sh = ss.getSheets()[0];
+  var values = sh.getDataRange().getValues();
+  if (values.length < 2) return {};
+  var header = values[0], col = {};
+  header.forEach(function (h, i) { col[String(h).trim()] = i; });
+  if (!('แอดมิน' in col) || !('รหัสพนักงาน' in col)) {
+    throw new Error('ไม่พบคอลัมน์ แอดมิน หรือ รหัสพนักงาน ในไฟล์รายชื่อ');
+  }
+  var map = {};
+  for (var r = 1; r < values.length; r++) {
+    var nick = String(values[r][col['แอดมิน']] || '').trim();
+    var empId = String(values[r][col['รหัสพนักงาน']] || '').trim();
+    if (!nick || !empId) continue;
+    if (!map[nick]) map[nick] = empId; // เก็บครั้งแรกพอ (แถวอื่นของคนเดียวกันควรมีรหัสเดียวกันอยู่แล้ว)
+  }
+  return map;
+}
+
+// พ.ศ. 2 หลักแบบ "สิงหาคม 69" → "2026-08"
+function parseThaiMonthLabel_(label) {
+  label = String(label || '').trim();
+  for (var i = 0; i < THAI_MONTHS_.length; i++) {
+    if (label.indexOf(THAI_MONTHS_[i]) === 0) {
+      var yy = label.match(/(\d{2,4})/);
+      if (!yy) return null;
+      var buddhistYear = yy[1].length <= 2 ? 2500 + parseInt(yy[1], 10) : parseInt(yy[1], 10);
+      return (buddhistYear - 543) + '-' + String(i + 1).padStart(2, '0');
+    }
+  }
+  return null;
+}
+
+// สแกนแท็บ "KPI แอดมิน" หาตำแหน่งคอลัมน์ "รหัสพนักงาน" (คงที่ต้นตาราง) และคอลัมน์ %ปิดการขาย/% ตีกลับ
+// ของทุกบล็อกเดือน จากข้อความหัวตารางจริง (ไม่ hardcode ตัวอักษรคอลัมน์ เพราะบล็อกอาจขยับ/กว้างไม่เท่ากัน)
+function getKpiSheetLayout_() {
+  var ss = SpreadsheetApp.openById(KPI_SHEET_ID);
+  var sheets = ss.getSheets(), sh = null;
+  for (var i = 0; i < sheets.length; i++) { if (sheets[i].getSheetId() === KPI_TAB_GID) { sh = sheets[i]; break; } }
+  if (!sh) throw new Error('ไม่พบแท็บ KPI แอดมิน (gid=' + KPI_TAB_GID + ')');
+  var lastCol = sh.getLastColumn(), lastRow = sh.getLastRow();
+  var row1 = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+  var row3 = sh.getRange(3, 1, 1, lastCol).getDisplayValues()[0];
+
+  var empIdCol = -1;
+  for (var c = 0; c < row3.length; c++) { if (String(row3[c]).trim() === 'รหัสพนักงาน') { empIdCol = c; break; } }
+  if (empIdCol < 0) throw new Error('ไม่พบคอลัมน์รหัสพนักงานในแท็บ KPI แอดมิน');
+
+  var blocks = {}, curLabel = '';
+  for (var c2 = 0; c2 < row1.length; c2++) {
+    if (String(row1[c2]).trim()) curLabel = String(row1[c2]).trim();
+    var h3 = String(row3[c2]).trim();
+    if (h3 !== '%ปิดการขาย' && h3 !== '% ตีกลับ') continue;
+    var mm = parseThaiMonthLabel_(curLabel);
+    if (!mm) continue;
+    if (!blocks[mm]) blocks[mm] = { month: mm, label: curLabel, colClose: -1, colBounce: -1 };
+    if (h3 === '%ปิดการขาย') blocks[mm].colClose = c2; else blocks[mm].colBounce = c2;
+  }
+
+  return { sheet: sh, empIdCol: empIdCol, lastRow: lastRow, lastCol: lastCol, blocks: blocks };
+}
+
+// รายชื่อ 'YYYY-MM' ทุกเดือนที่ [start,end] คาบเกี่ยว (start/end เป็นสตริง 'YYYY-MM-DD')
+function monthsBetween_(start, end) {
+  var out = [], y = parseInt(start.slice(0, 4), 10), m = parseInt(start.slice(5, 7), 10);
+  var endY = parseInt(end.slice(0, 4), 10), endM = parseInt(end.slice(5, 7), 10);
+  while (y < endY || (y === endY && m <= endM)) {
+    out.push(y + '-' + String(m).padStart(2, '0'));
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+// % ปิดการขาย (รวม) และ % ตีกลับ ของแอดมินคนเดียว (ชื่อเล่น) ทุกเดือนที่คาบเกี่ยวกับ [start,end]
+function getAdminKpi_(adminNickname, start, end) {
+  var empId = getRosterMap_()[adminNickname];
+  if (!empId) return { found: false, reason: 'ไม่พบรหัสพนักงานของ "' + adminNickname + '" ในไฟล์รายชื่อ' };
+
+  var layout = getKpiSheetLayout_();
+  var months = monthsBetween_(start, end).filter(function (mm) { return mm in layout.blocks; });
+  if (!months.length) return { found: false, reason: 'ไม่มีบล็อก KPI ของเดือนที่เลือกในแท็บ KPI แอดมิน' };
+
+  var dataRows = layout.lastRow - 3;
+  if (dataRows <= 0) return { found: false, reason: 'แท็บ KPI แอดมิน ไม่มีข้อมูล' };
+  var data = layout.sheet.getRange(4, 1, dataRows, layout.lastCol).getDisplayValues();
+  var row = null;
+  for (var r = 0; r < data.length; r++) {
+    if (String(data[r][layout.empIdCol]).trim() === empId) { row = data[r]; break; }
+  }
+  if (!row) return { found: false, reason: 'ไม่พบรหัสพนักงาน ' + empId + ' ในแท็บ KPI แอดมิน' };
+
+  var monthsOut = months.map(function (mm) {
+    var b = layout.blocks[mm];
+    return {
+      month: mm, label: b.label,
+      close_rate_total: b.colClose >= 0 ? pct_(row[b.colClose]) : null,
+      bounce_rate: b.colBounce >= 0 ? pct_(row[b.colBounce]) : null
+    };
+  });
+  return { found: true, employeeId: empId, months: monthsOut };
 }
 
 function num_(v) {

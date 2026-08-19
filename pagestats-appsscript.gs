@@ -26,6 +26,11 @@
  * ตามชื่อแอดมินแทนเพจ — รวมยอดของแอดมินคนเดียวกันที่ดูแลหลายเพจ/หลายยูนิตเข้าด้วยกัน แถวที่ไม่มี
  * ชื่อแอดมินจะไม่ถูกนับ (ไม่รู้ว่าเป็นของใคร) — ถ้าส่ง query param "admin" มาด้วย จะได้ "daily"
  * เพิ่มในผลลัพธ์ (ยอดขายรวมรายวันเฉพาะของแอดมินคนนั้น สำหรับกราฟแนวโน้มในหน้า detail)
+ * คอลัมน์ admin ใน Staging เป็น ", ".join(...) ของทุกแอดมินในเพจนั้น (มาจาก etl/sync_pages.py) — โค้ด
+ * แยกทีละคนก่อน group เสมอ ไม่ group ตามสตริงรวมตรงๆ (ไม่งั้นเพจที่มีแอดมินร่วมกัน 2 คนจะกลายเป็น
+ * "คนที่ 3" ปลอมๆ ใน dropdown) ผลคือถ้าเพจหนึ่งมีแอดมิน 2 คนดูแลร่วมกัน ทั้งคู่จะได้เครดิตยอดเต็มของ
+ * เพจนั้น (ไม่หารครึ่ง) เพราะไม่รู้สัดส่วนงานจริงของแต่ละคน — sales_total รวมของทุกคนบวกกันจึงมากกว่า
+ * ยอดขายจริงของบริษัทได้ถ้ามีเพจที่ดูแลร่วมกันเยอะ ถือว่าตั้งใจ ไม่ใช่บั๊ก
  *
  * "kpi" (% ปิดการขาย / % ตีกลับ รายคน) — มาจากไฟล์คนละไฟล์กับ Staging Sheet นี้ 2 ไฟล์:
  *   1) ไฟล์รายชื่อ "test-รายงานเพจ FB" (master catalog เดียวกับที่ etl/sync_pages.py อ่าน "แอดมิน" มาใส่ Staging)
@@ -229,46 +234,53 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
 
     var unit = String(row[col.unit] || '').trim();
     var page = String(row[col.page] || '').trim();
-    var admin = String(row[col.admin] || '').trim();
-    if (!page || !admin) continue;
+    // etl/sync_pages.py เขียน admin เป็น ", ".join(ทุกแอดมินของเพจนั้น) — เพจที่มีแอดมินร่วมกันหลายคน
+    // จะได้สตริงรวม เช่น "ปุยฝ้าย (ปวรรรณ), ตะวัน (ปานตะวัน)" ถ้า group ตามสตริงนี้ตรงๆ จะกลายเป็น
+    // "คนที่ 3" ปลอมๆ ที่ไม่ตรงกับใครในไฟล์รายชื่อเลย (ทำให้ dropdown มึนและ join กับไฟล์ KPI ไม่เจอ)
+    // ต้องแยกทีละคนแล้วให้เครดิตยอดของเพจนั้นกับทุกคนที่ดูแลเพจนั้นจริง
+    var admins = String(row[col.admin] || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!page || !admins.length) continue;
     if (unitFilter && unitFilter !== 'ทั้งหมด' && unit !== unitFilter) continue;
-
-    if (byDate && admin === adminFilter) {
-      var dateKey = Utilities.formatDate(dt, Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd');
-      byDate[dateKey] = (byDate[dateKey] || 0) + num_(row[col.sales_total]);
-    }
-
-    if (!byAdmin[admin]) {
-      byAdmin[admin] = {
-        admin: admin, units: {}, pages: {},
-        ad_spend: 0, chats_ads: 0, chats_admin: 0,
-        sales_total: 0, sales_new: 0, sales_old: 0,
-        orders_total: 0, orders_new: 0, orders_old: 0,
-        closeWeighted: 0, closeWeight: 0,
-        errSum: 0, errCount: 0
-      };
-    }
-    var g = byAdmin[admin];
-    if (unit) g.units[unit] = true;
-    g.pages[unit + '|' + page] = page;
-    g.ad_spend += num_(row[col.ad_spend]);
-    g.chats_ads += num_(row[col.chats_ads]);
-    g.chats_admin += num_(row[col.chats_admin]);
-    g.sales_total += num_(row[col.sales_total]);
-    g.sales_new += num_(row[col.sales_new]);
-    g.sales_old += num_(row[col.sales_old]);
-    g.orders_total += num_(row[col.orders_total]);
-    g.orders_new += num_(row[col.orders_new]);
-    g.orders_old += num_(row[col.orders_old]);
 
     var dailyChatsAds = num_(row[col.chats_ads]);
     var closeVal = pct_(row[col.close_rate_new]);
-    if (!isNaN(closeVal) && dailyChatsAds > 0) {
-      g.closeWeighted += closeVal * dailyChatsAds;
-      g.closeWeight += dailyChatsAds;
-    }
     var errVal = pct_(row[col.error_pct]);
-    if (!isNaN(errVal)) { g.errSum += errVal; g.errCount++; }
+
+    admins.forEach(function (admin) {
+      if (byDate && admin === adminFilter) {
+        var dateKey = Utilities.formatDate(dt, Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd');
+        byDate[dateKey] = (byDate[dateKey] || 0) + num_(row[col.sales_total]);
+      }
+
+      if (!byAdmin[admin]) {
+        byAdmin[admin] = {
+          admin: admin, units: {}, pages: {},
+          ad_spend: 0, chats_ads: 0, chats_admin: 0,
+          sales_total: 0, sales_new: 0, sales_old: 0,
+          orders_total: 0, orders_new: 0, orders_old: 0,
+          closeWeighted: 0, closeWeight: 0,
+          errSum: 0, errCount: 0
+        };
+      }
+      var g = byAdmin[admin];
+      if (unit) g.units[unit] = true;
+      g.pages[unit + '|' + page] = page;
+      g.ad_spend += num_(row[col.ad_spend]);
+      g.chats_ads += num_(row[col.chats_ads]);
+      g.chats_admin += num_(row[col.chats_admin]);
+      g.sales_total += num_(row[col.sales_total]);
+      g.sales_new += num_(row[col.sales_new]);
+      g.sales_old += num_(row[col.sales_old]);
+      g.orders_total += num_(row[col.orders_total]);
+      g.orders_new += num_(row[col.orders_new]);
+      g.orders_old += num_(row[col.orders_old]);
+
+      if (!isNaN(closeVal) && dailyChatsAds > 0) {
+        g.closeWeighted += closeVal * dailyChatsAds;
+        g.closeWeight += dailyChatsAds;
+      }
+      if (!isNaN(errVal)) { g.errSum += errVal; g.errCount++; }
+    });
   }
 
   var result = Object.keys(byAdmin).map(function (k) {

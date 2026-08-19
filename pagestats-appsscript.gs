@@ -443,81 +443,81 @@ function monthsBetween_(start, end) {
   return out;
 }
 
-// % ปิดการขาย (รวม) และ % ตีกลับ ของแอดมินคนเดียว (ชื่อเล่น) ทุกเดือนที่คาบเกี่ยวกับ [start,end]
-function getAdminKpi_(adminNickname, start, end) {
-  var empId = getRosterMap_()[adminNickname];
-  if (!empId) return { found: false, reason: 'ไม่พบรหัสพนักงานของ "' + adminNickname + '" ในไฟล์รายชื่อ' };
+// ข้อมูล KPI ของ "ทุกคน" ในเดือนเดียว — cache ไว้ใน CacheService (5 นาที) เพราะเป็นส่วนที่ทำให้โหลดช้า
+// (เปิดไฟล์รายชื่อ + ไฟล์ KPI คนละไฟล์ทุกครั้งที่กดแท็บสถิติรายคน แม้แค่ดู leaderboard เฉยๆ) — อ่านจริง
+// แค่ครั้งเดียวต่อเดือนต่อ 5 นาที ไม่ว่าจะมีกี่คนกดดูกี่ครั้ง คืนเป็น {ชื่อเล่นแอดมิน: {...ข้อมูลเดือนนั้น}}
+function getKpiMonthDataCached_(month) {
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'kpi_month_v1_' + month;
+  var cached = cache.get(cacheKey);
+  if (cached) { try { return JSON.parse(cached); } catch (e) { /* cache เพี้ยน อ่านใหม่ */ } }
+
+  var rosterMap = getRosterMap_(); // ชื่อเล่น → รหัสพนักงาน
+  var empIdToNick = {};
+  Object.keys(rosterMap).forEach(function (nick) { empIdToNick[rosterMap[nick]] = nick; });
 
   var layout = getKpiSheetLayout_();
-  var months = monthsBetween_(start, end).filter(function (mm) { return mm in layout.blocks; });
-  if (!months.length) return { found: false, reason: 'ไม่มีบล็อก KPI ของเดือนที่เลือกในแท็บ KPI แอดมิน' };
+  var block = layout.blocks[month];
+  var result = {};
 
-  var dataRows = layout.lastRow - 3;
-  if (dataRows <= 0) return { found: false, reason: 'แท็บ KPI แอดมิน ไม่มีข้อมูล' };
-  var data = layout.sheet.getRange(4, 1, dataRows, layout.lastCol).getDisplayValues();
-  var row = null;
-  for (var r = 0; r < data.length; r++) {
-    if (String(data[r][layout.empIdCol]).trim() === empId) { row = data[r]; break; }
-  }
-  if (!row) return { found: false, reason: 'ไม่พบรหัสพนักงาน ' + empId + ' ในแท็บ KPI แอดมิน' };
-
-  var monthsOut = months.map(function (mm) {
-    var b = layout.blocks[mm];
-    var out = {
-      month: mm, label: b.label,
-      sales_actual: b.colSales >= 0 ? num_(row[b.colSales]) : null,
-      close_rate_total: b.colClose >= 0 ? pct_(row[b.colClose]) : null,
-      aov_actual: b.colAov >= 0 ? num_(row[b.colAov]) : null,
-      bounce_rate: b.colBounce >= 0 ? pct_(row[b.colBounce]) : null,
-      has_targets: !!b.hasTargets
-    };
-    if (b.hasTargets) {
-      out.sales_target = num_(row[b.colSalesTarget]);
-      out.close_target = pct_(row[b.colCloseTarget]);
-      out.aov_target = num_(row[b.colAovTarget]);
-      out.bounce_target = pct_(row[b.colBounceTarget]);
-      out.score = num_(row[b.colScore]);
-      out.status = String(row[b.colStatus] || '').trim();
+  if (block) {
+    var dataRows = layout.lastRow - 3;
+    if (dataRows > 0) {
+      var data = layout.sheet.getRange(4, 1, dataRows, layout.lastCol).getDisplayValues();
+      for (var r = 0; r < data.length; r++) {
+        var row = data[r];
+        var nick = empIdToNick[String(row[layout.empIdCol]).trim()];
+        if (!nick) continue;
+        var out = {
+          month: month, label: block.label,
+          sales_actual: block.colSales >= 0 ? num_(row[block.colSales]) : null,
+          close_rate_total: block.colClose >= 0 ? pct_(row[block.colClose]) : null,
+          aov_actual: block.colAov >= 0 ? num_(row[block.colAov]) : null,
+          bounce_rate: block.colBounce >= 0 ? pct_(row[block.colBounce]) : null,
+          has_targets: !!block.hasTargets
+        };
+        if (block.hasTargets) {
+          out.sales_target = num_(row[block.colSalesTarget]);
+          out.close_target = pct_(row[block.colCloseTarget]);
+          out.aov_target = num_(row[block.colAovTarget]);
+          out.bounce_target = pct_(row[block.colBounceTarget]);
+          out.score = num_(row[block.colScore]);
+          out.status = String(row[block.colStatus] || '').trim();
+        }
+        result[nick] = out;
+      }
     }
-    return out;
-  });
-  return { found: true, employeeId: empId, months: monthsOut };
+  }
+
+  // เก็บ cache แบบไม่ถือสาถ้าใหญ่เกิน 100KB/key ของ CacheService (แค่ทำให้ครั้งถัดไปช้าเท่าเดิม ไม่ error)
+  try { cache.put(cacheKey, JSON.stringify(result), 300); } catch (e) { }
+  return result;
 }
 
-// สถานะ KPI (ผ่าน/ไม่ผ่าน) + คะแนนรวม ของ "หลายคนพร้อมกัน" สำหรับหน้าจัดอันดับ (leaderboard) — อ่านไฟล์
-// รายชื่อ/ไฟล์ KPI แค่ครั้งเดียวไม่ว่าจะมีกี่คน ต่างจาก getAdminKpi_() ที่ตอบละเอียดของคนเดียว
+// % ปิดการขาย (รวม) และ % ตีกลับ ของแอดมินคนเดียว (ชื่อเล่น) ทุกเดือนที่คาบเกี่ยวกับ [start,end]
+function getAdminKpi_(adminNickname, start, end) {
+  var months = monthsBetween_(start, end);
+  var monthsOut = [];
+  months.forEach(function (mm) {
+    var entry = getKpiMonthDataCached_(mm)[adminNickname];
+    if (entry) monthsOut.push(entry);
+  });
+  if (!monthsOut.length) return { found: false, reason: 'ไม่พบข้อมูล KPI ของ "' + adminNickname + '" ในช่วงเดือนที่เลือก (เช็คว่ามีในไฟล์รายชื่อ/ไฟล์ KPI ไหม)' };
+  return { found: true, months: monthsOut };
+}
+
+// สถานะ KPI (ผ่าน/ไม่ผ่าน) + คะแนนรวม + % ตีกลับ ของ "หลายคนพร้อมกัน" สำหรับหน้าจัดอันดับ (leaderboard)
 // ใช้เดือนล่าสุดที่คาบเกี่ยวกับ [start,end] เดือนเดียว (ไม่ใช่ทุกเดือนในช่วง) เพราะแค่ต้องการป้ายสถานะ
 function getKpiStatusBatch_(adminNicknames, start, end) {
   var out = {};
   if (!adminNicknames.length) return out;
   var months = monthsBetween_(start, end);
   var lastMonth = months[months.length - 1];
-
-  var layout = getKpiSheetLayout_();
-  var block = layout.blocks[lastMonth];
-  if (!block || !block.hasTargets) return out; // ไม่มีบล็อกเดือนนี้ หรือคอลัมน์เป้าไม่สอดคล้อง — ไม่มีป้ายให้ (ไม่ error)
-
-  var rosterMap = getRosterMap_();
-  var wantedEmpIds = {}; // empId -> nickname (ย้อนกลับไว้ map ผลลัพธ์)
+  var monthData = getKpiMonthDataCached_(lastMonth);
   adminNicknames.forEach(function (nick) {
-    var id = rosterMap[nick];
-    if (id) wantedEmpIds[id] = nick;
+    var e = monthData[nick];
+    if (e) out[nick] = { month: e.month, score: e.score, status: e.status, bounce_rate: e.bounce_rate };
   });
-  if (!Object.keys(wantedEmpIds).length) return out;
-
-  var dataRows = layout.lastRow - 3;
-  if (dataRows <= 0) return out;
-  var data = layout.sheet.getRange(4, 1, dataRows, layout.lastCol).getDisplayValues();
-  for (var r = 0; r < data.length; r++) {
-    var empId = String(data[r][layout.empIdCol]).trim();
-    var nick = wantedEmpIds[empId];
-    if (!nick) continue;
-    out[nick] = {
-      month: lastMonth,
-      score: num_(data[r][block.colScore]),
-      status: String(data[r][block.colStatus] || '').trim()
-    };
-  }
   return out;
 }
 

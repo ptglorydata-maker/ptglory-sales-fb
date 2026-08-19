@@ -103,6 +103,55 @@
   .tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
   .tag.g{color:var(--jade-deep);background:var(--jade-soft)}.tag.r{color:#B4452F;background:var(--coral-soft)}.tag.a{color:#8A5A2A;background:var(--amber-soft)}
   .tag.page{color:var(--ink-2);background:var(--page);border:1px solid var(--line);font-size:12px;padding:5px 12px}
+  .tag.pass{color:#1a7a4c;background:#E1F3E9}
+  .tag.fail{color:#B4452F;background:var(--coral-soft)}
+  /* ---------- สถิติรายคน: จัดอันดับยอดขาย (leaderboard) ---------- */
+  :root{--gold:#C9942D;--gold-soft:#FBF1DC;--silver:#8C8C96;--silver-soft:#F1F1F3;--bronze:#B0673A;--bronze-soft:#FBE9DD}
+  .podium{grid-template-columns:1fr 1.08fr 1fr;align-items:end}
+  @media(max-width:900px){.podium{grid-template-columns:1fr}}
+  .pcard{border-radius:16px;padding:20px 18px;position:relative;box-shadow:0 1px 2px rgba(110,74,51,.04);border:1px solid var(--line);background:var(--card)}
+  .pcard.r1{background:linear-gradient(160deg,var(--gold-soft) 0%,#fff 65%);border-color:#EBD9AC;padding-top:26px}
+  .pcard.r2{background:linear-gradient(160deg,var(--silver-soft) 0%,#fff 65%);border-color:#DDDDE2}
+  .pcard.r3{background:linear-gradient(160deg,var(--bronze-soft) 0%,#fff 65%);border-color:#E9CBB6}
+  .rankbadge{position:absolute;top:-12px;left:18px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-family:'Anuphan';font-weight:700;font-size:15px;color:#fff;box-shadow:0 3px 8px rgba(0,0,0,.18)}
+  .rankbadge.g{background:linear-gradient(135deg,#E8C35A,var(--gold))}
+  .rankbadge.s{background:linear-gradient(135deg,#C7C7CE,var(--silver))}
+  .rankbadge.b{background:linear-gradient(135deg,#D68F63,var(--bronze))}
+  .pname{display:flex;align-items:center;gap:10px;margin-top:6px;cursor:pointer}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--jade);color:#fff;display:flex;align-items:center;justify-content:center;
+    font-family:'Anuphan';font-weight:600;font-size:15px;flex-shrink:0}
+  .pname b{font-family:'Anuphan';font-weight:600;font-size:15.5px;display:block}
+  .pname span{font-size:11.5px;color:var(--muted)}
+  .psales{font-family:'Anuphan';font-weight:700;font-size:30px;margin-top:14px;line-height:1}
+  .pmeta{display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .pmeta b{color:var(--ink-2);font-weight:600}
+  .ptag{position:absolute;top:16px;right:16px}
+  .lrow{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .lrow:last-child{border-bottom:none}
+  .lrank{width:26px;text-align:center;font-family:'Anuphan';font-weight:600;color:var(--faint);font-size:14px;flex-shrink:0}
+  .lname{width:190px;flex-shrink:0;display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}
+  .lname .avatar{width:30px;height:30px;font-size:12.5px}
+  .lname b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .lname span{font-size:11px;color:var(--faint)}
+  .lbar{flex:1;height:10px;background:#F3E8E2;border-radius:20px;overflow:hidden;min-width:80px}
+  .lfill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--jade),var(--jade-deep))}
+  .lsales{width:100px;text-align:right;font-family:'Anuphan';font-weight:600;font-size:14px;flex-shrink:0}
+  .lmeta{width:190px;flex-shrink:0;text-align:right;font-size:11.5px;color:var(--muted)}
+  .ltag{width:64px;flex-shrink:0;text-align:center}
+  /* ---------- สถิติรายคน: เป้าหมาย KPI vs เป้า (แถบเทียบเป้า) ---------- */
+  .kpimetric{margin-bottom:16px}
+  .kpimetric:last-child{margin-bottom:0}
+  .kpimtop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;gap:4px}
+  .kpimtop .lbl{font-size:13px;color:var(--ink-2);font-weight:500}
+  .kpimtop .val{font-size:13.5px}
+  .kpimtop .val b{font-family:'Anuphan';font-weight:600;font-size:15px}
+  .kpimtop .val span{color:var(--faint);font-size:12px}
+  .kpibar{height:10px;background:#F3E8E2;border-radius:20px;overflow:hidden;position:relative}
+  .kpifill{height:100%;border-radius:20px}
+  .kpifill.ok{background:linear-gradient(90deg,var(--jade),var(--jade-deep))}
+  .kpifill.warn{background:linear-gradient(90deg,#E0A24A,var(--amber))}
+  .kpitarget{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink-2)}
   #loading{position:absolute;inset:0;background:rgba(251,243,239,.75);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted);z-index:5}
   .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--jade);border-radius:50%;animation:s .7s linear infinite;margin-right:8px}
   @keyframes s{to{transform:rotate(360deg)}}
@@ -366,6 +415,17 @@
     </section>
 
     <section id="viewPeople" class="hide">
+      <!-- จัดอันดับยอดขายรายแอดมิน (แสดงตอนเลือก "ทั้งหมด") -->
+      <div id="peopleLeaderboard">
+        <div class="grid podium" id="lbPodium" style="margin-bottom:15px"></div>
+        <div class="panel" style="margin:0" id="lbListPanel">
+          <h3>อันดับ 4 เป็นต้นไป</h3>
+          <div class="ph" id="lbListPh">คลิกชื่อเพื่อดูรายละเอียดรายคน (ต้นทุนทัก, %ปิดการขาย, %ตีกลับ, กราฟแนวโน้ม)</div>
+          <div id="lbList"></div>
+        </div>
+      </div>
+
+      <!-- รายละเอียดรายคน (แสดงตอนเลือกแอดมินจาก dropdown) -->
       <div class="grid row-hero hide" id="peopleAdminHero" style="margin-bottom:15px">
         <div class="card hero">
           <div class="lbl">ยอดขายรวม</div><div class="big num" id="paSales">—</div>
@@ -383,18 +443,17 @@
         <div class="kpi"><div class="lbl">เปอร์บิลรวม</div><div class="big num" id="paAovTotal">—</div><div class="sub">ยอดรวม ÷ ออเดอร์รวม</div></div>
         <div class="kpi"><div class="lbl">% ปิดใหม่</div><div class="big num" id="paCloseNew">—</div><div class="sub">ทักใหม่ → ปิดจริง</div></div>
       </div>
-      <div class="grid hide" id="peopleAdminKpis2" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
-        <div class="kpi" id="paCloseTotalCard">
-          <div class="lbl">% ปิดการขาย (รวม) <span class="tag a" id="paCloseTotalTag" style="display:none">รอเชื่อมข้อมูล</span></div>
-          <div class="big num" id="paCloseTotal">—</div>
-          <div class="sub" id="paCloseTotalSub"></div>
+      <!-- เป้าหมาย KPI เดือนนี้ (แทนที่การ์ดตัวเลขเดี่ยวๆ เดิม) — เทียบกับเป้า/คะแนน/สถานะ ผ่าน-ไม่ผ่าน จากไฟล์ KPI -->
+      <div class="panel hide" id="peopleAdminKpiTargets" style="margin:0 0 18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+          <h3>เป้าหมาย KPI เดือนนี้</h3>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="big num" id="paKpiScore" style="font-size:22px">—</span>
+            <span class="tag" id="paKpiStatusTag">—</span>
+          </div>
         </div>
-        <div class="kpi" id="paBounceCard">
-          <div class="lbl">% ตีกลับ <span class="tag a" id="paBounceTag" style="display:none">รอเชื่อมข้อมูล</span></div>
-          <div class="big num" id="paBounce">—</div>
-          <div class="sub" id="paBounceSub"></div>
-        </div>
-        <div class="kpi"><div class="lbl">จำนวนเพจที่ดูแล</div><div class="big num" id="paPageCount">—</div><div class="sub" id="paUnitList"></div></div>
+        <div class="ph" id="paKpiPh">เทียบกับเป้าที่ตั้งไว้ในไฟล์ KPI ฝ่ายขาย</div>
+        <div id="paKpiMetrics"></div>
       </div>
       <div class="grid row-charts hide" id="peopleAdminCharts">
         <div class="panel" style="margin:0"><h3>สัดส่วนยอดขาย</h3><div class="ph">ใหม่ vs เก่า ในช่วงที่เลือก</div>
@@ -407,16 +466,10 @@
           <div class="cw" style="height:230px"><canvas id="paTrend"></canvas></div>
         </div>
       </div>
-      <div class="panel hide" id="peopleAdminPages" style="margin:0 0 18px">
+      <div class="panel hide" id="peopleAdminPages" style="margin:0">
         <h3>เพจที่แอดมินคนนี้ดูแลทั้งหมด</h3><div class="ph" id="peopleAdminPagesPh"></div>
         <div id="peopleAdminPagesChips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
-      <div class="panel" style="margin:0"><h3>สถิติรายคน</h3><div class="ph" id="peopleTablePh">สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)</div>
-        <div style="overflow-x:auto"><table style="min-width:1400px"><thead><tr>
-          <th style="text-align:left">แอดมิน</th><th style="text-align:left">หน่วย</th><th>จำนวนเพจที่ดูแล</th><th>รวมคนทักใหม่ ADS</th><th>นับคนเข้าจริง ADMIN</th><th>% ERROR เฉลี่ย</th><th>ต้นทุนทัก</th>
-          <th>ยอดขายใหม่</th><th>ออเดอร์ใหม่</th><th>ยอดขายเก่า</th><th>ออเดอร์เก่า</th><th>ยอดขายรวม</th><th>ออเดอร์รวม</th>
-          <th>% ปิดใหม่</th><th>เปอร์บิล</th>
-        </tr></thead><tbody id="peopleBody"></tbody></table></div></div>
     </section>
   </main>
   </div>
@@ -772,7 +825,7 @@ var curAdminFilter='';
 function loadAdminStats(){
   el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
   var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
-  // ส่ง admin ไปด้วยเสมอ (ถ้าเลือกไว้) เพื่อให้ backend คำนวณ "daily" (กราฟแนวโน้มรายวัน) ของคนนั้นมาในคำขอเดียว
+  // ส่ง admin ไปด้วยเสมอ (ถ้าเลือกไว้) เพื่อให้ backend คำนวณ "daily"/"kpi" ของคนนั้นมาในคำขอเดียว
   var key=rd.start+'|'+rd.end+'|'+(curPageUnit||'')+'|'+(curAdminFilter||'');
   var params={mode:'admin_stats',start:rd.start,end:rd.end,unit:curPageUnit||'',admin:curAdminFilter||''};
   if(adminStatsCache[key]){
@@ -784,7 +837,8 @@ function loadAdminStats(){
   callPageApi(params,function(d){adminStatsCache[key]=d;renderAdminStats(d);},function(err){show(false);renderAdminStatsError(err.message);});
 }
 function renderAdminStatsError(msg){
-  el('peopleBody').innerHTML='<tr><td colspan="15" style="color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
+  el('lbPodium').innerHTML='';
+  el('lbList').innerHTML='<div style="padding:14px 0;color:#B4452F">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</div>';
 }
 // เติม dropdown "เลือกแอดมิน" จากรายชื่อแอดมินที่มีอยู่จริงในข้อมูลที่โหลดมา (คงค่าที่เลือกไว้ถ้ายังมีอยู่)
 function buildAdminPick(rows){
@@ -795,7 +849,13 @@ function buildAdminPick(rows){
 }
 function onAdminPickChange(){
   curAdminFilter=el('adminPick').value;
-  loadAdminStats(); // ต้องยิงใหม่ ไม่ใช่กรอง client-side เฉยๆ เพราะต้องได้ "daily" ของคนที่เพิ่งเลือกมาด้วย
+  loadAdminStats(); // ต้องยิงใหม่ ไม่ใช่กรอง client-side เฉยๆ เพราะต้องได้ "daily"/"kpi" ของคนที่เพิ่งเลือกมาด้วย
+}
+// ใช้ตอนคลิกชื่อในลีดเดอร์บอร์ด — สลับ dropdown ไปคนนั้นแล้วโหลดรายละเอียด
+function selectAdmin(name){
+  curAdminFilter=name;
+  el('adminPick').value=name;
+  loadAdminStats();
 }
 function renderAdminStats(d){
   show(false);
@@ -807,106 +867,155 @@ function renderAdminStats(d){
   buildAdminPick(rows);
   if(!rows.length){
     hideAdminDetail();
-    el('peopleBody').innerHTML='<tr><td colspan="15" style="color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
-    el('peopleTablePh').textContent='สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · ไม่มีข้อมูลในช่วงนี้';
+    el('peopleLeaderboard').classList.remove('hide');
+    el('lbPodium').innerHTML='';
+    el('lbList').innerHTML='<div style="padding:14px 0;color:var(--faint)">ไม่มีข้อมูลในช่วงที่เลือก</div>';
     return;
   }
-  renderAdminTable(rows,d.daily||null,d.kpi||null);
-}
-function hideAdminDetail(){
-  ['peopleAdminHero','peopleAdminKpis1','peopleAdminKpis2','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.add('hide'); });
-}
-// การ์ด % ปิดการขาย(รวม) / % ตีกลับ — มาจากไฟล์ KPI แยกต่างหาก join ด้วยรหัสพนักงาน อาจไม่พบข้อมูลได้ (คนใหม่/ไม่มีในไฟล์)
-function renderKpiCard(cardId,valId,tagId,subId,monthKey,kpi){
-  var card=el(cardId),tag=el(tagId),sub=el(subId),val=el(valId);
-  if(!kpi||!kpi.found||!kpi.months||!kpi.months.length){
-    card.classList.add('pending');
-    val.textContent='—';
-    tag.style.display='';
-    sub.textContent=kpi&&kpi.reason?kpi.reason:'ไม่พบข้อมูลของแอดมินคนนี้ในไฟล์ KPI';
-    return;
-  }
-  card.classList.remove('pending');
-  tag.style.display='none';
-  var months=kpi.months,last=months[months.length-1];
-  var lastVal=last[monthKey];
-  val.innerHTML=(lastVal==null)?'—':cspan(num1(lastVal,'%'),monthKey==='close_rate_total'?'close':'',lastVal);
-  if(months.length>1){
-    sub.textContent=months.map(function(m){ return m.label+' '+(m[monthKey]==null?'—':num1(m[monthKey],'%')); }).join(' · ');
-  } else {
-    sub.textContent=last.label;
-  }
-}
-function renderAdminTable(rows,daily,kpi){
-  var filtered=curAdminFilter?rows.filter(function(r){ return r.admin===curAdminFilter; }):rows;
-  var sortedRows=filtered.slice().sort(function(a,b){ return (b.sales_total||0)-(a.sales_total||0); });
-  if(curAdminFilter&&sortedRows.length){
-    var r=sortedRows[0];
-    ['peopleAdminHero','peopleAdminKpis1','peopleAdminKpis2','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.remove('hide'); });
-    // การ์ดยอดขายรวม + แถบสัดส่วนใหม่/เก่า
-    var tSales=r.sales_total||0,newPct=tSales?Math.round((r.sales_new||0)/tSales*100):0,oldPct=tSales?100-newPct:0;
-    el('paSales').textContent=baht(r.sales_total);
-    el('paSplitNew').style.width=newPct+'%';
-    el('paSalesMeta').innerHTML='<span>ยอดใหม่ '+baht(r.sales_new)+' ('+newPct+'%)</span><span>ยอดเก่า '+baht(r.sales_old)+' ('+oldPct+'%)</span>';
-    // ต้นทุนทัก + %ERROR
-    el('paCost').textContent=baht(r.cost_per_chat);
-    paint('paCost','cost_inbox',r.cost_per_chat);
-    el('paCostMeta').textContent='รวมคนทักใหม่ ADS '+int0(r.chats_ads)+' · นับคนเข้าจริง ADMIN '+int0(r.chats_admin);
-    el('paError').textContent=num1(r.error_pct,'%');
-    el('paErrorMeta').textContent='เฉลี่ยของทุกเพจที่ดูแลในช่วงนี้';
-    // ออเดอร์ + เปอร์บิล + %ปิดใหม่
-    el('paOrdersNew').textContent=int0(r.orders_new);
-    el('paOrdersOld').textContent=int0(r.orders_old);
-    el('paOrdersTotal').textContent=int0(r.orders_total);
-    el('paAovNew').textContent=baht(r.aov);
-    el('paAovTotal').textContent=baht(r.aov_total);
-    el('paCloseNew').innerHTML=cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new);
-    el('paPageCount').textContent=int0(r.pageCount)+' เพจ';
-    el('paUnitList').textContent=(r.units||[]).join(', ')||'—';
-    // % ปิดการขาย(รวม) / % ตีกลับ — มาจากไฟล์ KPI แยกต่างหาก (join ด้วยรหัสพนักงาน)
-    renderKpiCard('paCloseTotalCard','paCloseTotal','paCloseTotalTag','paCloseTotalSub','close_rate_total',kpi);
-    renderKpiCard('paBounceCard','paBounce','paBounceTag','paBounceSub','bounce_rate',kpi);
-    // เพจที่ดูแลทั้งหมด — แสดงเป็น chip แทนข้อความยาวบรรทัดเดียว
-    el('peopleAdminPagesPh').textContent=int0(r.pageCount)+' เพจ ในช่วงเวลาที่เลือก';
-    var pageChips=(r.pages||[]).map(function(p){
-      return '<span class="tag page">'+esc(p)+'</span>';
-    }).join('');
-    el('peopleAdminPagesChips').innerHTML=pageChips||'<span class="vs">—</span>';
-    // กราฟโดนัท ยอดใหม่/เก่า (ใช้ config เดียวกับที่หน้าภาพรวมรายวันใช้อยู่แล้ว)
-    mk('paDonut',donutCfg([r.sales_new||0,r.sales_old||0],['ยอดใหม่','ยอดเก่า']));
-    el('paDonutLegend').innerHTML='<span><i style="background:'+J+'"></i>ยอดใหม่ '+baht(r.sales_new)+' ('+newPct+'%)</span><span><i style="background:'+JD+'"></i>ยอดเก่า '+baht(r.sales_old)+' ('+oldPct+'%)</span>';
-    // กราฟแนวโน้มยอดขายรายวัน — ต้องมี daily มาจาก backend (ส่ง admin ไปพร้อม request แล้ว)
-    if(daily&&daily.length){
-      el('paTrendPh').textContent='ยอดขายรวมรายวันของแอดมินคนนี้ ในช่วงที่เลือก';
-      mk('paTrend',barsCfg(daily.map(function(x){return x.date.slice(5);}),[{label:'ยอดขาย',data:daily.map(function(x){return x.sales_total;}),c:J}]));
-    } else {
-      el('paTrendPh').textContent='ไม่มีข้อมูลรายวันในช่วงที่เลือก';
-      mk('paTrend',{type:'bar',data:{labels:['ไม่มีข้อมูล'],datasets:[{data:[0],backgroundColor:'#F0E3DC'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{y:{display:false},x:{grid:{display:false}}}}});
-    }
+  if(curAdminFilter){
+    el('peopleLeaderboard').classList.add('hide');
+    renderAdminDetail(rows,d.daily||null,d.kpi||null);
   } else {
     hideAdminDetail();
+    el('peopleLeaderboard').classList.remove('hide');
+    renderLeaderboard(rows);
   }
-  el('peopleTablePh').textContent=curAdminFilter
-    ?('แสดงเฉพาะแอดมิน '+curAdminFilter+' (เลือก "ทั้งหมด" เพื่อดูทุกคน)')
-    :'สรุปยอดของแต่ละแอดมิน รวมทุกเพจที่ดูแลในช่วงเวลาที่เลือก · เรียงตามยอดขายรวมมากไปน้อย (เลื่อนซ้าย-ขวาเพื่อดูทุกคอลัมน์)';
-  el('peopleBody').innerHTML=sortedRows.map(function(r){
-    var pageList=(r.pages||[]).join(', ');
-    return '<tr><td style="text-align:left">'+esc(r.admin||'—')+'</td>'
-      +'<td style="text-align:left">'+esc((r.units||[]).join(', ')||'—')+'</td>'
-      +'<td class="num" title="'+esc(pageList)+'">'+int0(r.pageCount)+'</td>'
-      +'<td class="num">'+int0(r.chats_ads)+'</td>'
-      +'<td class="num">'+int0(r.chats_admin)+'</td>'
-      +'<td class="num">'+num1(r.error_pct,'%')+'</td>'
-      +'<td class="num">'+cspan(baht(r.cost_per_chat),'cost_inbox',r.cost_per_chat)+'</td>'
-      +'<td class="num">'+baht(r.sales_new)+'</td>'
-      +'<td class="num">'+int0(r.orders_new)+'</td>'
-      +'<td class="num">'+baht(r.sales_old)+'</td>'
-      +'<td class="num">'+int0(r.orders_old)+'</td>'
-      +'<td class="num">'+baht(r.sales_total)+'</td>'
-      +'<td class="num">'+int0(r.orders_total)+'</td>'
-      +'<td class="num">'+cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+'</td>'
-      +'<td class="num">'+baht(r.aov)+'</td></tr>';
+}
+function hideAdminDetail(){
+  ['peopleAdminHero','peopleAdminKpis1','peopleAdminKpiTargets','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.add('hide'); });
+}
+function avatarInitial(name){ return esc((String(name||'').trim().charAt(0))||'?'); }
+// ป้าย "ผ่าน/ไม่ผ่าน KPI" จากคอลัมน์ "สถานะ KPI" ในไฟล์ KPI ตรงๆ (ไม่คำนวณเอง) — คืนสตริงว่างถ้ายังไม่มีข้อมูล
+function kpiStatusTag(status){
+  if(!status||!status.status) return '';
+  var pass=/ผ่าน/.test(status.status)&&!/ไม่ผ่าน/.test(status.status);
+  return '<span class="tag '+(pass?'pass':'fail')+'">'+esc(status.status)+'</span>';
+}
+// escape ชื่อสำหรับฝังใน onclick="selectAdmin('...')" (กัน ' และ \ หลุด syntax แล้วค่อย esc() ทับอีกชั้นเพราะอยู่ใน attribute)
+function adminClickAttr(name){
+  var js="selectAdmin('"+String(name).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"')";
+  return 'onclick="'+esc(js)+'"';
+}
+
+/* ---------- จัดอันดับยอดขายรายแอดมิน (leaderboard) — แสดงตอนเลือก "ทั้งหมด" ---------- */
+function renderLeaderboard(rows){
+  var sorted=rows.slice().sort(function(a,b){ return (b.sales_total||0)-(a.sales_total||0); });
+  var top3=sorted.slice(0,3),rest=sorted.slice(3);
+  var medalCls=['r1','r2','r3'],badgeCls=['g','s','b'],podiumOrder=[1,0,2]; // อันดับ 1 อยู่ตรงกลางเหมือนโพเดียมจริง
+  el('lbPodium').innerHTML=podiumOrder.map(function(idx){
+    var r=top3[idx]; if(!r) return '';
+    return '<div class="pcard '+medalCls[idx]+'">'
+      +'<div class="rankbadge '+badgeCls[idx]+'">'+(idx+1)+'</div>'
+      +'<span class="ptag">'+kpiStatusTag(r.kpi_status)+'</span>'
+      +'<div class="pname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div>'
+      +'<div class="psales num">'+baht(r.sales_total)+'</div>'
+      +'<div class="pmeta"><span>เปอร์บิล <b class="num">'+baht(r.aov)+'</b></span><span>%ปิดใหม่ <b class="num">'+num1(r.close_rate_new,'%')+'</b></span></div>'
+      +'</div>';
   }).join('');
+
+  var maxSales=sorted.length?(sorted[0].sales_total||0):0;
+  if(!rest.length){
+    el('lbList').innerHTML='<div style="padding:14px 0;color:var(--faint)">มีแอดมินแค่ '+sorted.length+' คนในช่วงนี้</div>';
+    el('lbListPh').textContent='แอดมินทุกคนอยู่ในโพเดียมด้านบนแล้ว';
+    return;
+  }
+  el('lbListPh').textContent='คลิกชื่อเพื่อดูรายละเอียดรายคน (ต้นทุนทัก, เป้าหมาย KPI, กราฟแนวโน้ม)';
+  el('lbList').innerHTML=rest.map(function(r,i){
+    var pct=maxSales?Math.max(2,Math.round((r.sales_total||0)/maxSales*100)):0;
+    return '<div class="lrow">'
+      +'<div class="lrank">'+(i+4)+'</div>'
+      +'<div class="lname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div>'
+      +'<div class="lbar"><div class="lfill" style="width:'+pct+'%"></div></div>'
+      +'<div class="lsales num">'+baht(r.sales_total)+'</div>'
+      +'<div class="lmeta">เปอร์บิล '+baht(r.aov)+' · %ปิดใหม่ '+num1(r.close_rate_new,'%')+'</div>'
+      +'<div class="ltag">'+(kpiStatusTag(r.kpi_status)||'<span class="vs">—</span>')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+/* ---------- รายละเอียดรายคน (แสดงตอนเลือกแอดมินจาก dropdown/คลิกลีดเดอร์บอร์ด) ---------- */
+function setKpiStatusTag(cls,text){
+  var t=el('paKpiStatusTag'); t.className='tag '+cls; t.textContent=text;
+}
+// แถบเทียบเป้า 1 ตัวชี้วัด — invert=true คือยิ่งต่ำยิ่งดี (เช่น %ตีกลับ) เป้าเป็นเพดานสูงสุดแทนเป้าขั้นต่ำ
+function kpiMetricBar(label,note,actual,actualFmt,target,targetFmt,invert){
+  var noteHtml=note?(' <span style="color:var(--faint);font-weight:400">'+note+'</span>'):'';
+  if(target==null||actual==null){
+    return '<div class="kpimetric"><div class="kpimtop"><span class="lbl">'+label+noteHtml+'</span>'
+      +'<span class="val"><b class="num">'+(actualFmt||'—')+'</b> <span>ไม่มีเป้าของเดือนนี้</span></span></div>'
+      +'<div class="kpibar"><div class="kpifill warn" style="width:0"></div></div></div>';
+  }
+  var pct=target?Math.round(actual/target*100):0;
+  var ok=invert?(actual<=target):(pct>=80);
+  return '<div class="kpimetric"><div class="kpimtop"><span class="lbl">'+label+noteHtml+'</span>'
+    +'<span class="val"><b class="num">'+actualFmt+'</b> <span>/ '+(invert?'สูงสุด ':'เป้า ')+targetFmt+'</span></span></div>'
+    +'<div class="kpibar"><div class="kpitarget" style="left:100%"></div><div class="kpifill '+(ok?'ok':'warn')+'" style="width:'+Math.max(0,Math.min(100,pct))+'%"></div></div></div>';
+}
+function renderKpiTargets(kpi){
+  if(!kpi||!kpi.found||!kpi.months||!kpi.months.length){
+    el('paKpiPh').textContent=kpi&&kpi.reason?kpi.reason:'ไม่พบข้อมูลของแอดมินคนนี้ในไฟล์ KPI';
+    el('paKpiScore').textContent='—';
+    setKpiStatusTag('a','รอเชื่อมข้อมูล');
+    el('paKpiMetrics').innerHTML='';
+    return;
+  }
+  var m=kpi.months[kpi.months.length-1];
+  el('paKpiPh').textContent='เทียบกับเป้าที่ตั้งไว้ในไฟล์ KPI ฝ่ายขาย · '+m.label;
+  if(!m.has_targets){
+    el('paKpiScore').textContent='—';
+    setKpiStatusTag('a','ไม่พบคอลัมน์เป้าของเดือนนี้');
+  } else {
+    el('paKpiScore').textContent=num1(m.score);
+    var pass=/ผ่าน/.test(m.status||'')&&!/ไม่ผ่าน/.test(m.status||'');
+    setKpiStatusTag(pass?'pass':'fail',m.status||'—');
+  }
+  el('paKpiMetrics').innerHTML=
+    kpiMetricBar('ยอดขาย','',m.sales_actual,baht(m.sales_actual),m.has_targets?m.sales_target:null,baht(m.sales_target))
+    +kpiMetricBar('% ปิดการขาย','',m.close_rate_total,num1(m.close_rate_total,'%'),m.has_targets?m.close_target:null,num1(m.close_target,'%'))
+    +kpiMetricBar('เปอร์บิล','',m.aov_actual,baht(m.aov_actual),m.has_targets?m.aov_target:null,baht(m.aov_target))
+    +kpiMetricBar('% ตีกลับ','(ยิ่งต่ำยิ่งดี)',m.bounce_rate,num1(m.bounce_rate,'%'),m.has_targets?m.bounce_target:null,num1(m.bounce_target,'%'),true);
+}
+function renderAdminDetail(rows,daily,kpi){
+  var r=rows.filter(function(x){ return x.admin===curAdminFilter; })[0];
+  if(!r){ hideAdminDetail(); return; }
+  ['peopleAdminHero','peopleAdminKpis1','peopleAdminKpiTargets','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.remove('hide'); });
+  // การ์ดยอดขายรวม + แถบสัดส่วนใหม่/เก่า
+  var tSales=r.sales_total||0,newPct=tSales?Math.round((r.sales_new||0)/tSales*100):0,oldPct=tSales?100-newPct:0;
+  el('paSales').textContent=baht(r.sales_total);
+  el('paSplitNew').style.width=newPct+'%';
+  el('paSalesMeta').innerHTML='<span>ยอดใหม่ '+baht(r.sales_new)+' ('+newPct+'%)</span><span>ยอดเก่า '+baht(r.sales_old)+' ('+oldPct+'%)</span>';
+  // ต้นทุนทัก + %ERROR
+  el('paCost').textContent=baht(r.cost_per_chat);
+  paint('paCost','cost_inbox',r.cost_per_chat);
+  el('paCostMeta').textContent='รวมคนทักใหม่ ADS '+int0(r.chats_ads)+' · นับคนเข้าจริง ADMIN '+int0(r.chats_admin);
+  el('paError').textContent=num1(r.error_pct,'%');
+  el('paErrorMeta').textContent='เฉลี่ยของทุกเพจที่ดูแลในช่วงนี้';
+  // ออเดอร์ + เปอร์บิล + %ปิดใหม่
+  el('paOrdersNew').textContent=int0(r.orders_new);
+  el('paOrdersOld').textContent=int0(r.orders_old);
+  el('paOrdersTotal').textContent=int0(r.orders_total);
+  el('paAovNew').textContent=baht(r.aov);
+  el('paAovTotal').textContent=baht(r.aov_total);
+  el('paCloseNew').innerHTML=cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new);
+  // เป้าหมาย KPI เดือนนี้ — มาจากไฟล์ KPI แยกต่างหาก (join ด้วยรหัสพนักงาน)
+  renderKpiTargets(kpi);
+  // เพจที่ดูแลทั้งหมด — แสดงเป็น chip แทนข้อความยาวบรรทัดเดียว
+  el('peopleAdminPagesPh').textContent=int0(r.pageCount)+' เพจ ('+((r.units||[]).join(', ')||'—')+') ในช่วงเวลาที่เลือก';
+  var pageChips=(r.pages||[]).map(function(p){
+    return '<span class="tag page">'+esc(p)+'</span>';
+  }).join('');
+  el('peopleAdminPagesChips').innerHTML=pageChips||'<span class="vs">—</span>';
+  // กราฟโดนัท ยอดใหม่/เก่า (ใช้ config เดียวกับที่หน้าภาพรวมรายวันใช้อยู่แล้ว)
+  mk('paDonut',donutCfg([r.sales_new||0,r.sales_old||0],['ยอดใหม่','ยอดเก่า']));
+  el('paDonutLegend').innerHTML='<span><i style="background:'+J+'"></i>ยอดใหม่ '+baht(r.sales_new)+' ('+newPct+'%)</span><span><i style="background:'+JD+'"></i>ยอดเก่า '+baht(r.sales_old)+' ('+oldPct+'%)</span>';
+  // กราฟแนวโน้มยอดขายรายวัน — ต้องมี daily มาจาก backend (ส่ง admin ไปพร้อม request แล้ว)
+  if(daily&&daily.length){
+    el('paTrendPh').textContent='ยอดขายรวมรายวันของแอดมินคนนี้ ในช่วงที่เลือก';
+    mk('paTrend',barsCfg(daily.map(function(x){return x.date.slice(5);}),[{label:'ยอดขาย',data:daily.map(function(x){return x.sales_total;}),c:J}]));
+  } else {
+    el('paTrendPh').textContent='ไม่มีข้อมูลรายวันในช่วงที่เลือก';
+    mk('paTrend',{type:'bar',data:{labels:['ไม่มีข้อมูล'],datasets:[{data:[0],backgroundColor:'#F0E3DC'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{y:{display:false},x:{grid:{display:false}}}}});
+  }
 }
 
 /* ---------- DAILY ---------- */

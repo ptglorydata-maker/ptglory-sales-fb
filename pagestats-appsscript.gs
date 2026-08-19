@@ -314,6 +314,15 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
   });
   result.sort(function (a, b) { return b.sales_total - a.sales_total; });
 
+  // ป้าย "ผ่าน/ไม่ผ่าน KPI" + คะแนน สำหรับหน้าจัดอันดับ (leaderboard) — แนบให้ทุกแถวเสมอ (อ่านไฟล์แค่ครั้ง
+  // เดียวไม่ว่าจะกี่คน) แยกจาก kpi ละเอียด (ทุกเดือน/เป้า) ที่แนบเฉพาะตอนกรองแอดมินคนเดียวด้านล่าง
+  try {
+    var statusBatch = getKpiStatusBatch_(result.map(function (r) { return r.admin; }), start, end);
+    result.forEach(function (r) { r.kpi_status = statusBatch[r.admin] || null; });
+  } catch (batchErr) {
+    result.forEach(function (r) { r.kpi_status = null; });
+  }
+
   var dailySeries = null;
   if (byDate) {
     dailySeries = Object.keys(byDate).sort().map(function (dk) {
@@ -370,8 +379,15 @@ function parseThaiMonthLabel_(label) {
   return null;
 }
 
-// สแกนแท็บ "KPI แอดมิน" หาตำแหน่งคอลัมน์ "รหัสพนักงาน" (คงที่ต้นตาราง) และคอลัมน์ %ปิดการขาย/% ตีกลับ
-// ของทุกบล็อกเดือน จากข้อความหัวตารางจริง (ไม่ hardcode ตัวอักษรคอลัมน์ เพราะบล็อกอาจขยับ/กว้างไม่เท่ากัน)
+// สแกนแท็บ "KPI แอดมิน" หาตำแหน่งคอลัมน์ "รหัสพนักงาน" (คงที่ต้นตาราง) และคอลัมน์ค่าจริง 4 ตัวของทุกบล็อกเดือน
+// (ยอดขาย/%ปิดการขาย/ยอดขายเปอร์บิล/% ตีกลับ) จากข้อความหัวตารางจริงในแถว 3 เสมอ (ไม่ hardcode ตัวอักษร
+// คอลัมน์ เพราะบล็อกอาจขยับ/กว้างไม่เท่ากันเหมือนที่เจอปัญหานี้มาแล้วกับไฟล์รายเพจ)
+//
+// ต่อจากคอลัมน์ "ยอดขาย" (ค่าจริง) ของแต่ละบล็อก มีคอลัมน์เป้า/คะแนนอีก 8 คอลัมน์ + คะแนนรวม + สถานะ KPI
+// เรียงตำแหน่งคงที่เสมอ (ยืนยันจากไฟล์จริงเดือนสิงหาคม 69: EN..FA = ยอดขาย,%ปิดการขาย,เปอร์บิล,%ตีกลับ,
+// [เป้ายอดขาย,คะแนน],[เป้า%ปิด,คะแนน],[เป้าเปอร์บิล,คะแนน],[เป้า%ตีกลับ,คะแนน],คะแนนรวม,สถานะ KPI)
+// เชื่อตำแหน่งนี้เฉพาะบล็อกที่ผ่านการเช็คความสอดคล้องแล้วเท่านั้น (ระยะห่างระหว่างคอลัมน์ที่หาเจอจริง
+// ต้องตรงกับที่คาดไว้พอดี) — บล็อกไหนไม่ตรงจะได้แค่ค่าจริง 4 ตัว ไม่ได้เป้า/คะแนน/สถานะ กันโชว์เลขผิด
 function getKpiSheetLayout_() {
   var ss = SpreadsheetApp.openById(KPI_SHEET_ID);
   var sheets = ss.getSheets(), sh = null;
@@ -389,12 +405,29 @@ function getKpiSheetLayout_() {
   for (var c2 = 0; c2 < row1.length; c2++) {
     if (String(row1[c2]).trim()) curLabel = String(row1[c2]).trim();
     var h3 = String(row3[c2]).trim();
-    if (h3 !== '%ปิดการขาย' && h3 !== '% ตีกลับ') continue;
+    if (h3 !== 'ยอดขาย' && h3 !== '%ปิดการขาย' && h3 !== 'ยอดขายเปอร์บิล' && h3 !== '% ตีกลับ') continue;
     var mm = parseThaiMonthLabel_(curLabel);
     if (!mm) continue;
-    if (!blocks[mm]) blocks[mm] = { month: mm, label: curLabel, colClose: -1, colBounce: -1 };
-    if (h3 === '%ปิดการขาย') blocks[mm].colClose = c2; else blocks[mm].colBounce = c2;
+    if (!blocks[mm]) blocks[mm] = { month: mm, label: curLabel, colSales: -1, colClose: -1, colAov: -1, colBounce: -1 };
+    if (h3 === 'ยอดขาย') blocks[mm].colSales = c2;
+    else if (h3 === '%ปิดการขาย') blocks[mm].colClose = c2;
+    else if (h3 === 'ยอดขายเปอร์บิล') blocks[mm].colAov = c2;
+    else blocks[mm].colBounce = c2;
   }
+
+  // เติมตำแหน่งเป้า/คะแนน/สถานะ เฉพาะบล็อกที่ระยะห่างของ 4 คอลัมน์จริงตรงกับที่คาดไว้พอดี (colSales,+1,+2,+3)
+  Object.keys(blocks).forEach(function (mm) {
+    var b = blocks[mm];
+    var ok = b.colSales >= 0 && b.colClose === b.colSales + 1 && b.colAov === b.colSales + 2 && b.colBounce === b.colSales + 3;
+    b.hasTargets = ok;
+    if (ok) {
+      b.colSalesTarget = b.colSales + 4; b.colSalesPts = b.colSales + 5;
+      b.colCloseTarget = b.colSales + 6; b.colClosePts = b.colSales + 7;
+      b.colAovTarget = b.colSales + 8; b.colAovPts = b.colSales + 9;
+      b.colBounceTarget = b.colSales + 10; b.colBouncePts = b.colSales + 11;
+      b.colScore = b.colSales + 12; b.colStatus = b.colSales + 13;
+    }
+  });
 
   return { sheet: sh, empIdCol: empIdCol, lastRow: lastRow, lastCol: lastCol, blocks: blocks };
 }
@@ -430,13 +463,62 @@ function getAdminKpi_(adminNickname, start, end) {
 
   var monthsOut = months.map(function (mm) {
     var b = layout.blocks[mm];
-    return {
+    var out = {
       month: mm, label: b.label,
+      sales_actual: b.colSales >= 0 ? num_(row[b.colSales]) : null,
       close_rate_total: b.colClose >= 0 ? pct_(row[b.colClose]) : null,
-      bounce_rate: b.colBounce >= 0 ? pct_(row[b.colBounce]) : null
+      aov_actual: b.colAov >= 0 ? num_(row[b.colAov]) : null,
+      bounce_rate: b.colBounce >= 0 ? pct_(row[b.colBounce]) : null,
+      has_targets: !!b.hasTargets
     };
+    if (b.hasTargets) {
+      out.sales_target = num_(row[b.colSalesTarget]);
+      out.close_target = pct_(row[b.colCloseTarget]);
+      out.aov_target = num_(row[b.colAovTarget]);
+      out.bounce_target = pct_(row[b.colBounceTarget]);
+      out.score = num_(row[b.colScore]);
+      out.status = String(row[b.colStatus] || '').trim();
+    }
+    return out;
   });
   return { found: true, employeeId: empId, months: monthsOut };
+}
+
+// สถานะ KPI (ผ่าน/ไม่ผ่าน) + คะแนนรวม ของ "หลายคนพร้อมกัน" สำหรับหน้าจัดอันดับ (leaderboard) — อ่านไฟล์
+// รายชื่อ/ไฟล์ KPI แค่ครั้งเดียวไม่ว่าจะมีกี่คน ต่างจาก getAdminKpi_() ที่ตอบละเอียดของคนเดียว
+// ใช้เดือนล่าสุดที่คาบเกี่ยวกับ [start,end] เดือนเดียว (ไม่ใช่ทุกเดือนในช่วง) เพราะแค่ต้องการป้ายสถานะ
+function getKpiStatusBatch_(adminNicknames, start, end) {
+  var out = {};
+  if (!adminNicknames.length) return out;
+  var months = monthsBetween_(start, end);
+  var lastMonth = months[months.length - 1];
+
+  var layout = getKpiSheetLayout_();
+  var block = layout.blocks[lastMonth];
+  if (!block || !block.hasTargets) return out; // ไม่มีบล็อกเดือนนี้ หรือคอลัมน์เป้าไม่สอดคล้อง — ไม่มีป้ายให้ (ไม่ error)
+
+  var rosterMap = getRosterMap_();
+  var wantedEmpIds = {}; // empId -> nickname (ย้อนกลับไว้ map ผลลัพธ์)
+  adminNicknames.forEach(function (nick) {
+    var id = rosterMap[nick];
+    if (id) wantedEmpIds[id] = nick;
+  });
+  if (!Object.keys(wantedEmpIds).length) return out;
+
+  var dataRows = layout.lastRow - 3;
+  if (dataRows <= 0) return out;
+  var data = layout.sheet.getRange(4, 1, dataRows, layout.lastCol).getDisplayValues();
+  for (var r = 0; r < data.length; r++) {
+    var empId = String(data[r][layout.empIdCol]).trim();
+    var nick = wantedEmpIds[empId];
+    if (!nick) continue;
+    out[nick] = {
+      month: lastMonth,
+      score: num_(data[r][block.colScore]),
+      status: String(data[r][block.colStatus] || '').trim()
+    };
+  }
+  return out;
 }
 
 function num_(v) {

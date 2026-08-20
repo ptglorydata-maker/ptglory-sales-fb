@@ -95,6 +95,20 @@ STAGING_HEADER = [
     "error_pct",         # % ERROR รายเพจ
 ]
 
+# Staging รายคน — ยอดขาย/ออเดอร์/%ปิด/เปอร์บิล ที่ดึงจากแท็บ "Adminชื่อ" ของแต่ละยูนิต (ข้อมูลจริง
+# รายบุคคล ไม่ใช่ค่า full-credit จากแท็บเพจแบบเดิม) — เจตนาไม่ดึง ad_spend/ROAS มาไว้ตรงนี้ เพราะ
+# แท็บ Adminชื่อ ไม่มีคอลัมน์งบโฆษณา (ผู้บริหารยืนยันให้ ต้นทุนทัก/ROAS คงใช้ค่าจากหน้าเพจเดิมต่อไป)
+ADMIN_STAGING_TAB = "staging_รายคน"
+ADMIN_STAGING_HEADER = [
+    "date", "unit", "admin",
+    "sales_total", "sales_new", "sales_old",
+    "orders_total", "orders_new", "orders_old",
+    "chats_admin",       # ทักเฉลี่ย
+    "close_rate_new",    # % ปิดการขายลูกค้าใหม่
+    "aov_new",           # เปอร์บิลลูกค้าใหม่
+    "aov_old",           # เปอร์บิลลูกค้าเก่า
+]
+
 # ตั้งค่าต่อยูนิต — เพิ่ม entry ใหม่หลังยืนยันชื่อ tab ด้วย --discover
 # tab_to_catalog: {ชื่อ tab: ชื่อเพจตรงตัวใน master catalog} เฉพาะเพจที่ยัง active เท่านั้นก็พอ
 UNITS = {
@@ -815,6 +829,104 @@ def parse_page_tab(ws, unit_name, page_name):
     return out
 
 
+def find_admin_metric_columns(values, header_row):
+    """เหมือน find_metric_columns แต่ใช้กับแท็บ 'Adminชื่อ' (รายบุคคล) ซึ่งโครงสร้างหัวตาราง
+    ต่างจากแท็บเพจ: มีแค่ 2 แถวหัวตาราง (ไม่ใช่ 3 แถว) เริ่มที่ header_row
+      แถว header_row   (banner_row) = "ยอดรวม"/"Orderรวม"/กลุ่ม "ลูกค้าใหม่(เพจ)"/"ลูกค้าเก่า(เพจ)"/
+                                        "ทักเฉลี่ย"/"% ปิดการขายลูกค้าใหม่"/"ROAS"/"เปอร์บิลลูกค้าใหม่/เก่า"
+      แถว header_row+1 (sub_row)    = ป้ายย่อยของแต่ละกลุ่ม "ยอดขาย"/"Order"
+    ยืนยันจากไฟล์จริง U5 'Adminอ้อม' (20/8/2569): โครงสร้างนี้ซ้ำเหมือนกันทุกบล็อกเดือน (12/12 บล็อก)
+    ไม่มีคอลัมน์งบโฆษณา (ad_spend) เลย — ตามคาด เพราะงบโฆษณาคุมที่ระดับเพจ ไม่ใช่ระดับคน"""
+    banner_row = values[header_row - 1] if header_row - 1 < len(values) else []
+    sub_row = values[header_row] if header_row < len(values) else []
+
+    def find_col(row, text):
+        for i, cell_val in enumerate(row):
+            if cell_val.strip() == text:
+                return i + 1
+        return None
+
+    def find_col_containing(row, substr):
+        for i, cell_val in enumerate(row):
+            if substr in cell_val:
+                return i + 1
+        return None
+
+    def group_cols(group_substr):
+        start = find_col_containing(banner_row, group_substr)
+        if not start:
+            return None, None
+        sales_ok = start - 1 < len(sub_row) and sub_row[start - 1].strip() == "ยอดขาย"
+        orders_ok = start < len(sub_row) and sub_row[start].strip() == "Order"
+        return (start if sales_ok else None, start + 1 if orders_ok else None)
+
+    sales_new, orders_new = group_cols("ใหม่")
+    sales_old, orders_old = group_cols("เก่า")
+
+    return {
+        "sales_total": find_col(banner_row, "ยอดรวม"),
+        "orders_total": find_col(banner_row, "Orderรวม"),
+        "sales_new": sales_new,
+        "orders_new": orders_new,
+        "sales_old": sales_old,
+        "orders_old": orders_old,
+        "chats_admin": find_col(banner_row, "ทักเฉลี่ย"),
+        "close_rate_new": find_col(banner_row, "% ปิดการขายลูกค้าใหม่"),
+        "aov_new": find_col(banner_row, "เปอร์บิลลูกค้าใหม่"),
+        "aov_old": find_col(banner_row, "เปอร์บิลลูกค้าเก่า"),
+    }
+
+
+def parse_admin_tab(ws, unit_name, admin_name):
+    """Unpivot 1 tab (1 แอดมิน) ทุกบล็อกเดือนที่เจอ -> list of dict (long format)
+    รูปแบบเดียวกับ parse_page_tab แต่ใช้ find_admin_metric_columns และไม่มี ad_spend/ROAS"""
+    values = call_with_retry(ws.get_all_values)
+    blocks = find_date_blocks(values)
+    out = []
+
+    def cell(row, col):
+        if col is None:
+            return ""
+        idx = col - 1
+        return row[idx].replace(",", "").strip() if idx < len(row) else ""
+
+    def num(v):
+        try:
+            return float(v) if v not in ("", None) else None
+        except ValueError:
+            return None
+
+    required = ["sales_total", "orders_total"]
+
+    for bi, (header_row, _cols) in enumerate(blocks):
+        cols = find_admin_metric_columns(values, header_row)
+        if not all(cols[k] for k in required):
+            print(f"  [เตือน] '{admin_name}' บล็อกที่ขึ้นต้นแถว {header_row}: หาคอลัมน์หลักไม่ครบ {cols} — ข้ามบล็อกนี้")
+            continue
+        data_start = header_row
+        data_end = blocks[bi + 1][0] - 1 if bi + 1 < len(blocks) else len(values)
+        for row in values[data_start:data_end]:
+            d = parse_thai_short_date(row[0] if row else "")
+            if not d:
+                continue
+            out.append({
+                "date": d.isoformat(),
+                "unit": unit_name,
+                "admin": admin_name,
+                "sales_total": num(cell(row, cols["sales_total"])),
+                "sales_new": num(cell(row, cols["sales_new"])),
+                "sales_old": num(cell(row, cols["sales_old"])),
+                "orders_total": num(cell(row, cols["orders_total"])),
+                "orders_new": num(cell(row, cols["orders_new"])),
+                "orders_old": num(cell(row, cols["orders_old"])),
+                "chats_admin": num(cell(row, cols["chats_admin"])),
+                "close_rate_new": cell(row, cols["close_rate_new"]),
+                "aov_new": num(cell(row, cols["aov_new"])),
+                "aov_old": num(cell(row, cols["aov_old"])),
+            })
+    return out
+
+
 def read_staging(write_client):
     sh = call_with_retry(write_client.open_by_key, STAGING_SHEET_ID)
     try:
@@ -838,6 +950,58 @@ def write_staging(write_client, rows):
         value_input_option="RAW",
     )
     print(f"เขียนรวม {len(rows)} แถว ลง '{STAGING_TAB}' เรียบร้อย")
+
+
+def read_admin_staging(write_client):
+    sh = call_with_retry(write_client.open_by_key, STAGING_SHEET_ID)
+    try:
+        ws = call_with_retry(sh.worksheet, ADMIN_STAGING_TAB)
+    except gspread.WorksheetNotFound:
+        return []
+    return call_with_retry(ws.get_all_records)
+
+
+def write_admin_staging(write_client, rows):
+    sh = call_with_retry(write_client.open_by_key, STAGING_SHEET_ID)
+    try:
+        ws = call_with_retry(sh.worksheet, ADMIN_STAGING_TAB)
+    except gspread.WorksheetNotFound:
+        ws = call_with_retry(sh.add_worksheet, title=ADMIN_STAGING_TAB, rows=1, cols=len(ADMIN_STAGING_HEADER))
+
+    call_with_retry(ws.clear)
+    call_with_retry(
+        ws.update,
+        [ADMIN_STAGING_HEADER] + [[r.get(h, "") for h in ADMIN_STAGING_HEADER] for r in rows],
+        value_input_option="RAW",
+    )
+    print(f"เขียนรวม {len(rows)} แถว ลง '{ADMIN_STAGING_TAB}' เรียบร้อย")
+
+
+def sync_unit_admins(read_client, unit_name, existing_rows):
+    """หาแท็บที่ชื่อขึ้นต้นด้วย 'Admin' ในไฟล์ต้นทางของยูนิตนี้อัตโนมัติ (ไม่ต้อง config รายชื่อ
+    ไว้ล่วงหน้าเหมือน page_tabs เพราะยูนิตไหนมี/ไม่มีแท็บนี้ ยังไม่ยืนยันครบทุกยูนิต) แล้ว unpivot
+    ทีละแท็บ = ทีละคน หากยูนิตนี้ไม่มีแท็บ Admin เลย จะคืน existing_rows เดิมไว้เฉยๆ (getAdminStats
+    ฝั่ง dashboard จะ fallback ไปใช้ค่าประมาณจากแท็บเพจแทนสำหรับยูนิตนั้น)"""
+    cfg = UNITS.get(unit_name)
+    if not cfg:
+        return existing_rows
+
+    sh = call_with_retry(read_client.open_by_key, cfg["source_sheet_id"])
+    admin_tabs = [ws for ws in call_with_retry(sh.worksheets) if ws.title.startswith("Admin")]
+    if not admin_tabs:
+        print(f"  [{unit_name}] ไม่พบแท็บ 'Adminชื่อ' — ใช้ค่าประมาณจากแท็บเพจต่อไปสำหรับยูนิตนี้")
+        return existing_rows
+
+    unit_rows = []
+    for ws in admin_tabs:
+        admin_name = ws.title[len("Admin"):].strip()
+        if not admin_name:
+            continue
+        unit_rows += parse_admin_tab(ws, unit_name, admin_name)
+        time.sleep(1.5)  # กันยิง read requests รัวเกินไปจนชน Google Sheets API quota (60/นาที/user)
+
+    kept = [r for r in existing_rows if str(r.get("unit", "")).strip() != unit_name]
+    return kept + unit_rows
 
 
 def sync_unit(read_client, write_client, unit_name, pages, existing_rows):
@@ -919,11 +1083,14 @@ def main():
     write_client = get_write_client()
     pages = load_master_catalog(read_client)
     all_rows = read_staging(write_client)
+    all_admin_rows = read_admin_staging(write_client)
 
     for unit_name in units_to_sync:
         all_rows = sync_unit(read_client, write_client, unit_name, pages, all_rows)
+        all_admin_rows = sync_unit_admins(read_client, unit_name, all_admin_rows)
 
     write_staging(write_client, all_rows)
+    write_admin_staging(write_client, all_admin_rows)
 
 
 if __name__ == "__main__":

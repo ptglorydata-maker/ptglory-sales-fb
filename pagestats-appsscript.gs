@@ -132,6 +132,73 @@ function getSheet_() {
   throw new Error('ไม่พบแท็บที่มี gid=' + SHEET_GID + ' — แก้ค่า SHEET_GID ในโค้ดนี้');
 }
 
+// แท็บ "staging_รายคน" — ยอดขาย/ออเดอร์/%ปิด/เปอร์บิล รายบุคคลจริง (จากแท็บ "Adminชื่อ" ของแต่ละยูนิต
+// ผ่าน etl/sync_pages.py) ใช้แทนค่าประมาณแบบ full-credit จาก staging_รายเพจ เมื่อมีข้อมูลจริงของคนนั้น
+// อาจยังไม่มีแท็บนี้ในชีต (ยังไม่เคย sync หรือ deploy โค้ดใหม่ก่อนรัน ETL รอบแรก) จึงคืน null แทนการ throw
+// เพื่อให้ getAdminStats() fallback ไปใช้ค่าประมาณแบบเดิมได้เงียบๆ ไม่ล่มทั้งหน้า
+function getAdminDataSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName('staging_รายคน') || null;
+}
+
+// รวมยอดรายบุคคลจริงจาก staging_รายคน ในช่วง [start,end] (+ กรอง unit ถ้ามี) คืน:
+//   byAdmin: { ชื่อแอดมิน: { sales_total, sales_new, sales_old, orders_total, orders_new, orders_old,
+//                            closeSum, closeCount } }
+//   byAdminDaily: { ชื่อแอดมิน: { 'YYYY-MM-DD': sales_total } } — ใช้วาดกราฟแนวโน้มรายวันจริงในหน้า detail
+function getAdminPersonalAgg_(start, end, unitFilter) {
+  var sh = getAdminDataSheet_();
+  if (!sh) return { byAdmin: {}, byAdminDaily: {} };
+  var values = sh.getDataRange().getValues();
+  if (values.length < 2) return { byAdmin: {}, byAdminDaily: {} };
+
+  var header = values[0], col = {};
+  header.forEach(function (h, i) { col[String(h).trim()] = i; });
+  var need = ['date', 'unit', 'admin', 'sales_total', 'sales_new', 'sales_old',
+    'orders_total', 'orders_new', 'orders_old', 'close_rate_new'];
+  var hasAll = need.every(function (k) { return k in col; });
+  if (!hasAll) return { byAdmin: {}, byAdminDaily: {} }; // โครงสร้างแท็บผิดคาด — ข้ามไปใช้ fallback แทน
+
+  var startD = new Date(start + 'T00:00:00');
+  var endD = new Date(end + 'T23:59:59');
+  var byAdmin = {}, byAdminDaily = {};
+
+  for (var r = 1; r < values.length; r++) {
+    var row = values[r];
+    var d = row[col.date];
+    var dt = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(dt) || dt < startD || dt > endD) continue;
+
+    var unit = String(row[col.unit] || '').trim();
+    var admin = String(row[col.admin] || '').trim();
+    if (!admin) continue;
+    if (unitFilter && unitFilter !== 'ทั้งหมด' && normalizeUnitCode_(unit) !== unitFilter) continue;
+
+    if (!byAdmin[admin]) {
+      byAdmin[admin] = {
+        sales_total: 0, sales_new: 0, sales_old: 0,
+        orders_total: 0, orders_new: 0, orders_old: 0,
+        closeSum: 0, closeCount: 0
+      };
+    }
+    var g = byAdmin[admin];
+    var rowSales = num_(row[col.sales_total]);
+    g.sales_total += rowSales;
+    g.sales_new += num_(row[col.sales_new]);
+    g.sales_old += num_(row[col.sales_old]);
+    g.orders_total += num_(row[col.orders_total]);
+    g.orders_new += num_(row[col.orders_new]);
+    g.orders_old += num_(row[col.orders_old]);
+    var closeVal = pct_(row[col.close_rate_new]);
+    if (!isNaN(closeVal)) { g.closeSum += closeVal; g.closeCount++; }
+
+    var dateKey = Utilities.formatDate(dt, Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd');
+    if (!byAdminDaily[admin]) byAdminDaily[admin] = {};
+    byAdminDaily[admin][dateKey] = (byAdminDaily[admin][dateKey] || 0) + rowSales;
+  }
+
+  return { byAdmin: byAdmin, byAdminDaily: byAdminDaily };
+}
+
 function getPageStats(start, end, unitFilter) {
   var sh = getSheet_();
   var values = sh.getDataRange().getValues();
@@ -314,29 +381,48 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     });
   }
 
+  // ยอดขาย/ออเดอร์/%ปิดใหม่/เปอร์บิล "ของจริงรายคน" จากแท็บ staging_รายคน (ดู etl/sync_pages.py) —
+  // ใช้แทนค่าประมาณแบบ full-credit จาก staging_รายเพจ ด้านบนเมื่อมีข้อมูลจริงของคนนั้นในช่วงที่เลือก
+  // ต้นทุนทัก/ROAS/%ERROR ยังคงใช้ค่าจาก staging_รายเพจ เสมอ (ยืนยันแล้วว่าแท็บ Adminชื่อ ไม่มีข้อมูลงบโฆษณา)
+  var personalAgg = getAdminPersonalAgg_(start, end, unitFilter);
+
   var result = Object.keys(byAdmin).map(function (k) {
     var g = byAdmin[k];
     var pageNames = Object.keys(g.pages).map(function (pk) { return g.pages[pk]; }).sort();
+    var p = personalAgg.byAdmin[g.admin];
+    var hasReal = !!p && (p.sales_total !== 0 || p.orders_total !== 0);
+
+    var salesTotal = hasReal ? p.sales_total : g.sales_total;
+    var salesNew = hasReal ? p.sales_new : g.sales_new;
+    var salesOld = hasReal ? p.sales_old : g.sales_old;
+    var ordersTotal = hasReal ? p.orders_total : g.orders_total;
+    var ordersNew = hasReal ? p.orders_new : g.orders_new;
+    var ordersOld = hasReal ? p.orders_old : g.orders_old;
+    var closeRateNew = hasReal
+      ? (p.closeCount ? round2_(p.closeSum / p.closeCount) : 0)
+      : (g.closeWeight ? round2_(g.closeWeighted / g.closeWeight) : 0);
+
     return {
       admin: g.admin,
       units: Object.keys(g.units).sort(),
       pageCount: pageNames.length,
       pages: pageNames,
+      per_admin_real_data: hasReal, // true = ยอดจริงรายคนจากแท็บ Adminชื่อ, false = ค่าประมาณ full-credit จากแท็บเพจ
       // เปอร์บิลใหม่ = ยอดขายใหม่ ÷ ออเดอร์ใหม่ (สูตรเดียวกับสถิติรายเพจ)
-      aov: g.orders_new ? round2_(g.sales_new / g.orders_new) : 0,
+      aov: ordersNew ? round2_(salesNew / ordersNew) : 0,
       // เปอร์บิลรวม = ยอดขายรวม ÷ ออเดอร์รวม (คำนวณเพิ่มจากข้อมูลเดิม ไม่ต้องเพิ่มคอลัมน์ในชีต)
-      aov_total: g.orders_total ? round2_(g.sales_total / g.orders_total) : 0,
+      aov_total: ordersTotal ? round2_(salesTotal / ordersTotal) : 0,
       ad_spend: round2_(g.ad_spend),
       chats_ads: g.chats_ads,
       chats_admin: g.chats_admin,
       cost_per_chat: g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0,
-      sales_total: round2_(g.sales_total),
-      sales_new: round2_(g.sales_new),
-      sales_old: round2_(g.sales_old),
-      orders_total: round2_(g.orders_total),
-      orders_new: round2_(g.orders_new),
-      orders_old: round2_(g.orders_old),
-      close_rate_new: g.closeWeight ? round2_(g.closeWeighted / g.closeWeight) : 0,
+      sales_total: round2_(salesTotal),
+      sales_new: round2_(salesNew),
+      sales_old: round2_(salesOld),
+      orders_total: round2_(ordersTotal),
+      orders_new: round2_(ordersNew),
+      orders_old: round2_(ordersOld),
+      close_rate_new: closeRateNew,
       ads_pct: g.sales_total ? round2_(g.ad_spend / g.sales_total * 100) : 0,
       roas_new: g.ad_spend ? round2_(g.sales_new / g.ad_spend) : 0,
       roas_total: g.ad_spend ? round2_(g.sales_total / g.ad_spend) : 0,
@@ -356,8 +442,11 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
 
   var dailySeries = null;
   if (byDate) {
-    dailySeries = Object.keys(byDate).sort().map(function (dk) {
-      return { date: dk, sales_total: round2_(byDate[dk]) };
+    // ถ้ามีข้อมูลจริงรายคนของคนนี้ในแท็บ staging_รายคน ใช้กราฟแนวโน้มจากข้อมูลจริงแทนค่าประมาณ full-credit
+    var realDaily = personalAgg.byAdminDaily[adminFilter];
+    var sourceDaily = (realDaily && Object.keys(realDaily).length) ? realDaily : byDate;
+    dailySeries = Object.keys(sourceDaily).sort().map(function (dk) {
+      return { date: dk, sales_total: round2_(sourceDaily[dk]) };
     });
   }
 

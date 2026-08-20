@@ -166,7 +166,8 @@ function getAdminPersonalAgg_(start, end, unitFilter) {
   var header = values[0], col = {};
   header.forEach(function (h, i) { col[String(h).trim()] = i; });
   var need = ['date', 'unit', 'admin', 'sales_total', 'sales_new', 'sales_old',
-    'orders_total', 'orders_new', 'orders_old', 'close_rate_new'];
+    'orders_total', 'orders_new', 'orders_old', 'close_rate_new',
+    'ad_spend', 'cost_per_chat', 'roas_new'];
   var hasAll = need.every(function (k) { return k in col; });
   if (!hasAll) return { byAdmin: {}, byAdminDaily: {} }; // โครงสร้างแท็บผิดคาด — ข้ามไปใช้ fallback แทน
 
@@ -190,7 +191,8 @@ function getAdminPersonalAgg_(start, end, unitFilter) {
       byAdmin[key] = {
         sales_total: 0, sales_new: 0, sales_old: 0,
         orders_total: 0, orders_new: 0, orders_old: 0,
-        closeSum: 0, closeCount: 0
+        closeSum: 0, closeCount: 0,
+        ad_spend: 0, cost_per_chat_sum: 0, cost_per_chat_count: 0
       };
     }
     var g = byAdmin[key];
@@ -203,6 +205,9 @@ function getAdminPersonalAgg_(start, end, unitFilter) {
     g.orders_old += num_(row[col.orders_old]);
     var closeVal = pct_(row[col.close_rate_new]);
     if (!isNaN(closeVal)) { g.closeSum += closeVal; g.closeCount++; }
+    g.ad_spend += num_(row[col.ad_spend]);
+    var costPerChatVal = num_(row[col.cost_per_chat]);
+    if (costPerChatVal) { g.cost_per_chat_sum += costPerChatVal; g.cost_per_chat_count++; }
 
     var dateKey = Utilities.formatDate(dt, Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd');
     if (!byAdminDaily[key]) byAdminDaily[key] = {};
@@ -394,9 +399,10 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     });
   }
 
-  // ยอดขาย/ออเดอร์/%ปิดใหม่/เปอร์บิล "ของจริงรายคน" จากแท็บ staging_รายคน (ดู etl/sync_pages.py) —
-  // ใช้แทนค่าประมาณแบบ full-credit จาก staging_รายเพจ ด้านบนเมื่อมีข้อมูลจริงของคนนั้นในช่วงที่เลือก
-  // ต้นทุนทัก/ROAS/%ERROR ยังคงใช้ค่าจาก staging_รายเพจ เสมอ (ยืนยันแล้วว่าแท็บ Adminชื่อ ไม่มีข้อมูลงบโฆษณา)
+  // ยอดขาย/ออเดอร์/%ปิดใหม่/เปอร์บิล/ค่าแอด/ต้นทุนทัก/ROAS "ของจริงรายคน" จากแท็บ staging_รายคน
+  // (ดึงจากแท็บ "ค่าคอมแอดมิน" — ดู etl/sync_pages.py) ใช้แทนค่าประมาณแบบ full-credit จาก
+  // staging_รายเพจ ด้านบนเมื่อมีข้อมูลจริงของคนนั้นในช่วงที่เลือก — %ERROR ไม่มีในแท็บนี้ จึงยังคงใช้
+  // ค่าจาก staging_รายเพจ เสมอ (คำนวณระดับเพจ ไม่มีแยกรายคน)
   var personalAgg = getAdminPersonalAgg_(start, end, unitFilter);
 
   var result = Object.keys(byAdmin).map(function (k) {
@@ -408,10 +414,14 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     Object.keys(g.units).forEach(function (u) {
       var match = personalAgg.byAdmin[u + '|' + adminNick_(g.admin)];
       if (!match) return;
-      if (!p) p = { sales_total: 0, sales_new: 0, sales_old: 0, orders_total: 0, orders_new: 0, orders_old: 0, closeSum: 0, closeCount: 0 };
+      if (!p) p = {
+        sales_total: 0, sales_new: 0, sales_old: 0, orders_total: 0, orders_new: 0, orders_old: 0,
+        closeSum: 0, closeCount: 0, ad_spend: 0, cost_per_chat_sum: 0, cost_per_chat_count: 0
+      };
       p.sales_total += match.sales_total; p.sales_new += match.sales_new; p.sales_old += match.sales_old;
       p.orders_total += match.orders_total; p.orders_new += match.orders_new; p.orders_old += match.orders_old;
       p.closeSum += match.closeSum; p.closeCount += match.closeCount;
+      p.ad_spend += match.ad_spend; p.cost_per_chat_sum += match.cost_per_chat_sum; p.cost_per_chat_count += match.cost_per_chat_count;
     });
     var hasReal = !!p && (p.sales_total !== 0 || p.orders_total !== 0);
 
@@ -424,21 +434,29 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     var closeRateNew = hasReal
       ? (p.closeCount ? round2_(p.closeSum / p.closeCount) : 0)
       : (g.closeWeight ? round2_(g.closeWeighted / g.closeWeight) : 0);
+    // ค่าแอด/ROAS: ใช้ยอดค่าแอดจริงรายคนถ้ามี (รวม-หารใหม่จากยอดขายจริง แม่นกว่าเฉลี่ยเรโชรายวัน)
+    // ต้นทุนทัก: เฉลี่ยง่ายๆ จากค่ารายวันที่มีอยู่แล้วในชีต (ไม่มีจำนวนทักรายคนมาคำนวณ ad_spend/chats เอง)
+    var adSpend = hasReal ? p.ad_spend : g.ad_spend;
+    var costPerChat = hasReal
+      ? (p.cost_per_chat_count ? round2_(p.cost_per_chat_sum / p.cost_per_chat_count) : 0)
+      : (g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0);
+    var roasNew = adSpend ? round2_(salesNew / adSpend) : 0;
+    var roasTotal = adSpend ? round2_(salesTotal / adSpend) : 0;
 
     return {
       admin: g.admin,
       units: Object.keys(g.units).sort(),
       pageCount: pageNames.length,
       pages: pageNames,
-      per_admin_real_data: hasReal, // true = ยอดจริงรายคนจากแท็บ Adminชื่อ, false = ค่าประมาณ full-credit จากแท็บเพจ
+      per_admin_real_data: hasReal, // true = ยอดจริงรายคนจากแท็บ ค่าคอมแอดมิน, false = ค่าประมาณ full-credit จากแท็บเพจ
       // เปอร์บิลใหม่ = ยอดขายใหม่ ÷ ออเดอร์ใหม่ (สูตรเดียวกับสถิติรายเพจ)
       aov: ordersNew ? round2_(salesNew / ordersNew) : 0,
       // เปอร์บิลรวม = ยอดขายรวม ÷ ออเดอร์รวม (คำนวณเพิ่มจากข้อมูลเดิม ไม่ต้องเพิ่มคอลัมน์ในชีต)
       aov_total: ordersTotal ? round2_(salesTotal / ordersTotal) : 0,
-      ad_spend: round2_(g.ad_spend),
+      ad_spend: round2_(adSpend),
       chats_ads: g.chats_ads,
       chats_admin: g.chats_admin,
-      cost_per_chat: g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0,
+      cost_per_chat: costPerChat,
       sales_total: round2_(salesTotal),
       sales_new: round2_(salesNew),
       sales_old: round2_(salesOld),
@@ -446,9 +464,9 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
       orders_new: round2_(ordersNew),
       orders_old: round2_(ordersOld),
       close_rate_new: closeRateNew,
-      ads_pct: g.sales_total ? round2_(g.ad_spend / g.sales_total * 100) : 0,
-      roas_new: g.ad_spend ? round2_(g.sales_new / g.ad_spend) : 0,
-      roas_total: g.ad_spend ? round2_(g.sales_total / g.ad_spend) : 0,
+      ads_pct: salesTotal ? round2_(adSpend / salesTotal * 100) : 0,
+      roas_new: roasNew,
+      roas_total: roasTotal,
       error_pct: g.errCount ? round2_(g.errSum / g.errCount) : 0
     };
   });

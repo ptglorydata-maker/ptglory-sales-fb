@@ -1056,6 +1056,17 @@ def main():
         discover(get_client(), source_sheet_id, unit_label, tab_name)
         return
 
+    if "--peek-admin-staging" in args:
+        idx = args.index("--peek-admin-staging")
+        needle = args[idx + 1] if idx + 1 < len(args) else ""
+        rows = read_admin_staging(get_write_client())
+        print(f"staging_รายคน มีทั้งหมด {len(rows)} แถว")
+        matches = [r for r in rows if needle in str(r.get("admin", ""))]
+        print(f"แถวที่ admin มีคำว่า '{needle}': {len(matches)}")
+        for r in matches[:40]:
+            print(r)
+        return
+
     if "--catalog" in args:
         idx = args.index("--catalog")
         unit_label = args[idx + 1] if idx + 1 < len(args) else None

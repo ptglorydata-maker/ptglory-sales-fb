@@ -823,19 +823,24 @@ function renderPageStats(d){
 var adminStatsCache={};
 var adminStatsRows=[]; // แถวล่าสุดที่โหลดมา (ทุกแอดมิน) เก็บไว้ให้ dropdown "เลือกแอดมิน" คงตัวเลือกไว้ได้
 var curAdminFilter='';
+// กันเคส "สลับ dropdown เร็วๆ ระหว่างรอโหลด" — ยิงคำขอใหม่ไปก่อนคำขอเก่าตอบกลับ แล้วคำขอเก่า (ของช่วง/
+// ยูนิต/แอดมินที่เลือกไปแล้วก่อนหน้า) ตอบกลับมาทีหลังคำขอใหม่ จะเผลอทับข้อมูลที่ถูกต้องด้วยข้อมูลเก่า
+// เก็บเลขคำขอล่าสุดไว้ ถ้าคำตอบที่กลับมาไม่ใช่ของคำขอล่าสุด ไม่ต้อง render ทับ
+var adminStatsReqSeq=0;
 function loadAdminStats(){
   el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
   var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
+  var myReq=++adminStatsReqSeq;
   // ส่ง admin ไปด้วยเสมอ (ถ้าเลือกไว้) เพื่อให้ backend คำนวณ "daily"/"kpi" ของคนนั้นมาในคำขอเดียว
   var key=rd.start+'|'+rd.end+'|'+(curPageUnit||'')+'|'+(curAdminFilter||'');
   var params={mode:'admin_stats',start:rd.start,end:rd.end,unit:curPageUnit||'',admin:curAdminFilter||''};
   if(adminStatsCache[key]){
     try{ renderAdminStats(adminStatsCache[key]); }catch(e){ delete adminStatsCache[key]; }
-    callPageApi(params,function(d){adminStatsCache[key]=d;renderAdminStats(d);},function(){});
+    callPageApi(params,function(d){adminStatsCache[key]=d;if(myReq===adminStatsReqSeq)renderAdminStats(d);},function(){});
     return;
   }
   show(true);
-  callPageApi(params,function(d){adminStatsCache[key]=d;renderAdminStats(d);},function(err){show(false);renderAdminStatsError(err.message);});
+  callPageApi(params,function(d){adminStatsCache[key]=d;if(myReq===adminStatsReqSeq)renderAdminStats(d);},function(err){if(myReq===adminStatsReqSeq){show(false);renderAdminStatsError(err.message);}});
 }
 function renderAdminStatsError(msg){
   el('lbPodium').innerHTML='';

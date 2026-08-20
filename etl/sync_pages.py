@@ -1061,8 +1061,9 @@ def main():
         needle = args[idx + 1] if idx + 1 < len(args) else ""
         rows = read_admin_staging(get_write_client())
         print(f"staging_รายคน มีทั้งหมด {len(rows)} แถว")
-        matches = [r for r in rows if needle in str(r.get("admin", ""))]
-        print(f"แถวที่ admin มีคำว่า '{needle}': {len(matches)}")
+        date_needle = args[idx + 2] if idx + 2 < len(args) else ""
+        matches = [r for r in rows if needle in str(r.get("admin", "")) and date_needle in str(r.get("date", ""))]
+        print(f"แถวที่ admin มีคำว่า '{needle}' และ date มีคำว่า '{date_needle}': {len(matches)}")
         for r in matches[:40]:
             print(r)
         return

@@ -1,0 +1,38 @@
+name: Discover Unit Tabs (debug helper)
+
+on:
+  workflow_dispatch:
+    inputs:
+      unit:
+        description: 'ยูนิต เช่น U5, U9, U12'
+        required: true
+      tab:
+        description: 'ชื่อแท็บ (ไม่ใส่ก็ได้ ถ้าไม่ใส่จะแสดงรายชื่อ tab ทั้งหมดของยูนิตนั้น)'
+        required: false
+        default: ''
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r etl/requirements.txt
+
+      - name: Write service account credentials
+        run: echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/service-account.json"
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Discover
+        working-directory: etl
+        run: python sync_pages.py --discover "$UNIT" "$TAB"
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/service-account.json
+          UNIT: ${{ inputs.unit }}
+          TAB: ${{ inputs.tab }}

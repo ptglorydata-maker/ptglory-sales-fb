@@ -37,7 +37,7 @@ jobs:
           UNIT: ${{ inputs.unit }}
           TAB: ${{ inputs.tab }}
 
-      - name: Peek staging_รายคน (debug: verify real per-admin rows landed)
+      - name: 'Peek staging_รายคน (debug: verify real per-admin rows landed)'
         working-directory: etl
         run: python sync_pages.py --peek-admin-staging "อ้อม"
         env:

@@ -95,18 +95,22 @@ STAGING_HEADER = [
     "error_pct",         # % ERROR รายเพจ
 ]
 
-# Staging รายคน — ยอดขาย/ออเดอร์/%ปิด/เปอร์บิล ที่ดึงจากแท็บ "Adminชื่อ" ของแต่ละยูนิต (ข้อมูลจริง
-# รายบุคคล ไม่ใช่ค่า full-credit จากแท็บเพจแบบเดิม) — เจตนาไม่ดึง ad_spend/ROAS มาไว้ตรงนี้ เพราะ
-# แท็บ Adminชื่อ ไม่มีคอลัมน์งบโฆษณา (ผู้บริหารยืนยันให้ ต้นทุนทัก/ROAS คงใช้ค่าจากหน้าเพจเดิมต่อไป)
+# Staging รายคน — ยอดขาย/ออเดอร์/%ปิด/เปอร์บิล/ค่าแอด/ROAS/ต้นทุนทัก ที่ดึงจากแท็บ "ค่าคอมแอดมิน"
+# ของแต่ละยูนิต (ข้อมูลจริงรายบุคคล ไม่ใช่ค่า full-credit จากแท็บเพจแบบเดิม) — แท็บนี้มีข้อมูลครบกว่า
+# แท็บ "Adminชื่อ" ที่เคยใช้ก่อนหน้า (มีค่าแอด/ต้นทุนทักรายคนด้วย) จึงใช้แทนทุกยูนิต ไม่ต้องพึ่งค่า
+# ประมาณจากหน้าเพจสำหรับ ต้นทุนทัก/ROAS อีกต่อไป — ไม่มี sales_new/sales_old แยก (ตารางนี้มีแค่ยอด
+# รวม) จึงใส่ sales_new = sales_total, sales_old = 0 ไปก่อน (เหมือนไม่แยกใหม่/เก่า)
 ADMIN_STAGING_TAB = "staging_รายคน"
 ADMIN_STAGING_HEADER = [
     "date", "unit", "admin",
     "sales_total", "sales_new", "sales_old",
     "orders_total", "orders_new", "orders_old",
-    "chats_admin",       # ทักเฉลี่ย
-    "close_rate_new",    # % ปิดการขายลูกค้าใหม่
-    "aov_new",           # เปอร์บิลลูกค้าใหม่
-    "aov_old",           # เปอร์บิลลูกค้าเก่า
+    "close_rate_new",    # %ปิด
+    "aov_new",           # เปอร์บิลใหม่
+    "aov_old",           # เปอร์บิลเก่า
+    "ad_spend",          # ค่าแอด
+    "cost_per_chat",     # ต้นทุนทัก
+    "roas_new",          # ROAS ใหม่
 ]
 
 # ตั้งค่าต่อยูนิต — เพิ่ม entry ใหม่หลังยืนยันชื่อ tab ด้วย --discover
@@ -829,57 +833,41 @@ def parse_page_tab(ws, unit_name, page_name):
     return out
 
 
-def find_admin_metric_columns(values, header_row):
-    """เหมือน find_metric_columns แต่ใช้กับแท็บ 'Adminชื่อ' (รายบุคคล) ซึ่งโครงสร้างหัวตาราง
-    ต่างจากแท็บเพจ: มีแค่ 2 แถวหัวตาราง (ไม่ใช่ 3 แถว) เริ่มที่ header_row
-      แถว header_row   (banner_row) = "ยอดรวม"/"Orderรวม"/กลุ่ม "ลูกค้าใหม่(เพจ)"/"ลูกค้าเก่า(เพจ)"/
-                                        "ทักเฉลี่ย"/"% ปิดการขายลูกค้าใหม่"/"ROAS"/"เปอร์บิลลูกค้าใหม่/เก่า"
-      แถว header_row+1 (sub_row)    = ป้ายย่อยของแต่ละกลุ่ม "ยอดขาย"/"Order"
-    ยืนยันจากไฟล์จริง U5 'Adminอ้อม' (20/8/2569): โครงสร้างนี้ซ้ำเหมือนกันทุกบล็อกเดือน (12/12 บล็อก)
-    ไม่มีคอลัมน์งบโฆษณา (ad_spend) เลย — ตามคาด เพราะงบโฆษณาคุมที่ระดับเพจ ไม่ใช่ระดับคน"""
-    banner_row = values[header_row - 1] if header_row - 1 < len(values) else []
-    sub_row = values[header_row] if header_row < len(values) else []
-
-    def find_col(row, text):
-        for i, cell_val in enumerate(row):
-            if cell_val.strip() == text:
-                return i + 1
-        return None
-
-    def find_col_containing(row, substr):
-        for i, cell_val in enumerate(row):
-            if substr in cell_val:
-                return i + 1
-        return None
-
-    def group_cols(group_substr):
-        start = find_col_containing(banner_row, group_substr)
-        if not start:
-            return None, None
-        sales_ok = start - 1 < len(sub_row) and sub_row[start - 1].strip() == "ยอดขาย"
-        orders_ok = start < len(sub_row) and sub_row[start].strip() == "Order"
-        return (start if sales_ok else None, start + 1 if orders_ok else None)
-
-    sales_new, orders_new = group_cols("ใหม่")
-    sales_old, orders_old = group_cols("เก่า")
-
-    return {
-        "sales_total": find_col(banner_row, "ยอดรวม"),
-        "orders_total": find_col(banner_row, "Orderรวม"),
-        "sales_new": sales_new,
-        "orders_new": orders_new,
-        "sales_old": sales_old,
-        "orders_old": orders_old,
-        "chats_admin": find_col(banner_row, "ทักเฉลี่ย"),
-        "close_rate_new": find_col(banner_row, "% ปิดการขายลูกค้าใหม่"),
-        "aov_new": find_col(banner_row, "เปอร์บิลลูกค้าใหม่"),
-        "aov_old": find_col(banner_row, "เปอร์บิลลูกค้าเก่า"),
-    }
+COMMISSION_TAB = "ค่าคอมแอดมิน"
 
 
-def parse_admin_tab(ws, unit_name, admin_name):
-    """Unpivot 1 tab (1 แอดมิน) ทุกบล็อกเดือนที่เจอ -> list of dict (long format)
-    รูปแบบเดียวกับ parse_page_tab แต่ใช้ find_admin_metric_columns และไม่มี ad_spend/ROAS"""
+def find_commission_admin_blocks(banner_row, sub_row):
+    """แท็บ 'ค่าคอมแอดมิน' (ยืนยันจากไฟล์จริง U12, 20/8/2569) มีหลายตารางเรียงกันในแถวเดียวกัน:
+    ตารางค่าคอม (หัวข้อ "@ชื่อ/H./รอง.H" มี / ปน), ตารางออเดอร์รวม, ตาราง %ปิด/เปอร์บิล เฉลี่ย
+    (ชื่อคนอยู่ใน sub_row ไม่ใช่ banner_row) — มีแค่ตารางเดียวที่ชื่อคน "@ชื่อ" (ไม่มี / ปน) อยู่ใน
+    banner_row ตรงๆ นั่นคือตารางหลักที่ต้องการ: ยอดขาย, ออเดอร์, %ปิด, ROAS ใหม่, เปอร์บิลใหม่,
+    เปอร์บิลเก่า, ค่าแอด, ต้นทุนทัก (8 คอลัมน์ต่อคน) — ยืนยันตรงกับที่ผู้ใช้ระบุ (คอลัมน์ AT = ยอดขาย
+    ของ 'เกส' ใน U12) หาโดยสแกนข้อความหัวตาราง ไม่ล็อคตำแหน่งคอลัมน์ เพราะจำนวนแอดมินต่างกันได้
+    ทำให้ตำแหน่งเลื่อนไปคนละที่ในแต่ละยูนิต/เดือน (เจอแล้วใน 8/2569: U12 เปลี่ยนจาก 6 เป็น 7 คนกลางปี)"""
+    labels = ["ยอดขาย", "ออเดอร์", "%ปิด", "ROAS ใหม่", "เปอร์บิลใหม่", "เปอร์บิลเก่า", "ค่าแอด", "ต้นทุนทัก"]
+    blocks = {}
+    for i, cell_val in enumerate(banner_row):
+        cell_val = cell_val.strip()
+        if not cell_val.startswith("@") or "/" in cell_val:
+            continue
+        admin_name = cell_val[1:].strip()
+        if not admin_name:
+            continue
+        sub = [sub_row[i + j].strip() if i + j < len(sub_row) else "" for j in range(8)]
+        if sub[0] != "ยอดขาย" or sub[1] != "ออเดอร์":
+            continue
+        blocks[admin_name] = {
+            "sales_total": i + 1, "orders_total": i + 2, "close_rate_new": i + 3,
+            "roas_new": i + 4, "aov_new": i + 5, "aov_old": i + 6,
+            "ad_spend": i + 7, "cost_per_chat": i + 8,
+        }
+    return blocks
+
+
+def parse_commission_tab(ws, unit_name):
+    """Unpivot แท็บ 'ค่าคอมแอดมิน' (รวมทุกแอดมินของยูนิตในแท็บเดียว ต่างจากแท็บ 'Adminชื่อ' แบบเดิม
+    ที่แยกทีละแท็บต่อคน) -> list of dict (long format) — ให้ ad_spend/ROAS/ต้นทุนทัก จริงรายคนด้วย
+    (แท็บ Adminชื่อ ไม่มีข้อมูลนี้ จึงเคยต้องใช้ค่าประมาณจากหน้าเพจแทน)"""
     values = call_with_retry(ws.get_all_values)
     blocks = find_date_blocks(values)
     out = []
@@ -896,12 +884,15 @@ def parse_admin_tab(ws, unit_name, admin_name):
         except ValueError:
             return None
 
-    required = ["sales_total", "orders_total"]
+    def pct_text(v):
+        return v if v else "0.00%"
 
     for bi, (header_row, _cols) in enumerate(blocks):
-        cols = find_admin_metric_columns(values, header_row)
-        if not all(cols[k] for k in required):
-            print(f"  [เตือน] '{admin_name}' บล็อกที่ขึ้นต้นแถว {header_row}: หาคอลัมน์หลักไม่ครบ {cols} — ข้ามบล็อกนี้")
+        banner_row = values[header_row - 1] if header_row - 1 < len(values) else []
+        sub_row = values[header_row] if header_row < len(values) else []
+        admin_blocks = find_commission_admin_blocks(banner_row, sub_row)
+        if not admin_blocks:
+            print(f"  [เตือน] '{unit_name}' บล็อกที่ขึ้นต้นแถว {header_row}: หาแอดมินในแท็บ '{COMMISSION_TAB}' ไม่เจอเลย — ข้ามบล็อกนี้")
             continue
         data_start = header_row
         data_end = blocks[bi + 1][0] - 1 if bi + 1 < len(blocks) else len(values)
@@ -909,21 +900,24 @@ def parse_admin_tab(ws, unit_name, admin_name):
             d = parse_thai_short_date(row[0] if row else "")
             if not d:
                 continue
-            out.append({
-                "date": d.isoformat(),
-                "unit": unit_name,
-                "admin": admin_name,
-                "sales_total": num(cell(row, cols["sales_total"])),
-                "sales_new": num(cell(row, cols["sales_new"])),
-                "sales_old": num(cell(row, cols["sales_old"])),
-                "orders_total": num(cell(row, cols["orders_total"])),
-                "orders_new": num(cell(row, cols["orders_new"])),
-                "orders_old": num(cell(row, cols["orders_old"])),
-                "chats_admin": num(cell(row, cols["chats_admin"])),
-                "close_rate_new": cell(row, cols["close_rate_new"]),
-                "aov_new": num(cell(row, cols["aov_new"])),
-                "aov_old": num(cell(row, cols["aov_old"])),
-            })
+            for admin_name, cols in admin_blocks.items():
+                out.append({
+                    "date": d.isoformat(),
+                    "unit": unit_name,
+                    "admin": admin_name,
+                    "sales_total": num(cell(row, cols["sales_total"])),
+                    "sales_new": num(cell(row, cols["sales_total"])),
+                    "sales_old": 0,
+                    "orders_total": num(cell(row, cols["orders_total"])),
+                    "orders_new": num(cell(row, cols["orders_total"])),
+                    "orders_old": 0,
+                    "close_rate_new": pct_text(cell(row, cols["close_rate_new"])),
+                    "aov_new": num(cell(row, cols["aov_new"])),
+                    "aov_old": num(cell(row, cols["aov_old"])),
+                    "ad_spend": num(cell(row, cols["ad_spend"])),
+                    "cost_per_chat": num(cell(row, cols["cost_per_chat"])),
+                    "roas_new": num(cell(row, cols["roas_new"])),
+                })
     return out
 
 
@@ -978,27 +972,24 @@ def write_admin_staging(write_client, rows):
 
 
 def sync_unit_admins(read_client, unit_name, existing_rows):
-    """หาแท็บที่ชื่อขึ้นต้นด้วย 'Admin' ในไฟล์ต้นทางของยูนิตนี้อัตโนมัติ (ไม่ต้อง config รายชื่อ
-    ไว้ล่วงหน้าเหมือน page_tabs เพราะยูนิตไหนมี/ไม่มีแท็บนี้ ยังไม่ยืนยันครบทุกยูนิต) แล้ว unpivot
-    ทีละแท็บ = ทีละคน หากยูนิตนี้ไม่มีแท็บ Admin เลย จะคืน existing_rows เดิมไว้เฉยๆ (getAdminStats
-    ฝั่ง dashboard จะ fallback ไปใช้ค่าประมาณจากแท็บเพจแทนสำหรับยูนิตนั้น)"""
+    """เปิดแท็บ 'ค่าคอมแอดมิน' ของยูนิตนี้ (ถ้ามี) แล้ว unpivot ทุกคนในแท็บเดียวกันทีเดียว — แทนที่
+    วิธีเดิมที่แยกอ่านทีละแท็บ 'Adminชื่อ' ต่อคน (แท็บนั้นไม่มีข้อมูลค่าแอด/ROAS/ต้นทุนทัก แต่แท็บ
+    ค่าคอมแอดมิน มีครบกว่า และมีโครงสร้างเดียวกันทุกยูนิตที่เช็คมา) หากยูนิตนี้ไม่มีแท็บนี้ จะคืน
+    existing_rows เดิมไว้เฉยๆ (getAdminStats ฝั่ง dashboard จะ fallback ไปใช้ค่าประมาณจากแท็บเพจแทน
+    สำหรับยูนิตนั้น)"""
     cfg = UNITS.get(unit_name)
     if not cfg:
         return existing_rows
 
     sh = call_with_retry(read_client.open_by_key, cfg["source_sheet_id"])
-    admin_tabs = [ws for ws in call_with_retry(sh.worksheets) if ws.title.startswith("Admin")]
-    if not admin_tabs:
-        print(f"  [{unit_name}] ไม่พบแท็บ 'Adminชื่อ' — ใช้ค่าประมาณจากแท็บเพจต่อไปสำหรับยูนิตนี้")
+    try:
+        ws = call_with_retry(sh.worksheet, COMMISSION_TAB)
+    except gspread.WorksheetNotFound:
+        print(f"  [{unit_name}] ไม่พบแท็บ '{COMMISSION_TAB}' — ใช้ค่าประมาณจากแท็บเพจต่อไปสำหรับยูนิตนี้")
         return existing_rows
 
-    unit_rows = []
-    for ws in admin_tabs:
-        admin_name = ws.title[len("Admin"):].strip()
-        if not admin_name:
-            continue
-        unit_rows += parse_admin_tab(ws, unit_name, admin_name)
-        time.sleep(1.5)  # กันยิง read requests รัวเกินไปจนชน Google Sheets API quota (60/นาที/user)
+    unit_rows = parse_commission_tab(ws, unit_name)
+    time.sleep(1.5)  # กันยิง read requests รัวเกินไปจนชน Google Sheets API quota (60/นาที/user)
 
     kept = [r for r in existing_rows if str(r.get("unit", "")).strip() != unit_name]
     return kept + unit_rows

@@ -99,6 +99,16 @@ function getPageUnits() {
 // ตัดคอลัมน์ unit ดิบให้เหลือแค่รหัสยูนิตล้วน เช่น "U9 ชาสมุนไพรแม่แย้ม" → "U9", "U5 ลาว Capsule" → "U5 ลาว"
 // เผื่อคอลัมน์ unit ใน Staging มีข้อความต่อท้ายปนมา (เจอจริงกับ U9 — บางแถวเป็น "U9" ล้วนๆ บางแถวมีชื่อ
 // เพจต่อท้าย) ถ้าไม่ normalize ก่อน การกรองยูนิตแบบ exact-match จะพลาดข้อมูลอีกฝั่งไปเงียบๆ
+// ดึง "ชื่อเล่น" ล้วนๆ จากป้ายในไฟล์รายชื่อ ซึ่งเป็นรูปแบบ "ชื่อเล่น (ชื่อจริง)" เช่น "อ้อม (บุษยา)" → "อ้อม"
+// จำเป็นเพราะแท็บ "Adminชื่อ" ต้นทาง (ที่ etl/sync_pages.py อ่านมาใส่ staging_รายคน) ตั้งชื่อแท็บด้วย
+// ชื่อเล่นล้วนๆ เท่านั้น (เช่น "Adminอ้อม" → "อ้อม") ไม่มีวงเล็บชื่อจริงต่อท้ายเหมือนไฟล์รายชื่อ ถ้าไม่ตัด
+// วงเล็บออกก่อน key จะไม่ตรงกันเลยสักคน แล้วจะ fallback ไปใช้ค่าประมาณแบบเดิมเงียบๆ ทุกคนโดยไม่มีใครรู้
+function adminNick_(fullLabel) {
+  var s = String(fullLabel || '').trim();
+  var i = s.indexOf(' (');
+  return i >= 0 ? s.slice(0, i).trim() : s;
+}
+
 function normalizeUnitCode_(raw) {
   raw = String(raw || '').trim();
   var m = raw.match(/^([A-Za-z]+\d+)(\s*ลาว)?/);
@@ -142,9 +152,11 @@ function getAdminDataSheet_() {
 }
 
 // รวมยอดรายบุคคลจริงจาก staging_รายคน ในช่วง [start,end] (+ กรอง unit ถ้ามี) คืน:
-//   byAdmin: { ชื่อแอดมิน: { sales_total, sales_new, sales_old, orders_total, orders_new, orders_old,
-//                            closeSum, closeCount } }
-//   byAdminDaily: { ชื่อแอดมิน: { 'YYYY-MM-DD': sales_total } } — ใช้วาดกราฟแนวโน้มรายวันจริงในหน้า detail
+//   byAdmin: { "หน่วย|ชื่อเล่น": { sales_total, sales_new, sales_old, orders_total, orders_new, orders_old,
+//                                    closeSum, closeCount } }
+//   byAdminDaily: { "หน่วย|ชื่อเล่น": { 'YYYY-MM-DD': sales_total } } — ใช้วาดกราฟแนวโน้มรายวันจริงในหน้า detail
+// key ต้องผูกกับหน่วยด้วยเสมอ (ไม่ใช่แค่ชื่อเล่นเฉยๆ) เพราะชื่อเล่นซ้ำกันข้ามยูนิตได้ (เช่น "ก้อย" มีทั้งใน
+// U9 และ U12 เป็นคนละคน) ถ้า key แค่ชื่อเล่น ตอนดู "ทั้งหมด" (ไม่กรองยูนิต) ยอดของสองคนจะถูกรวมปนกัน
 function getAdminPersonalAgg_(start, end, unitFilter) {
   var sh = getAdminDataSheet_();
   if (!sh) return { byAdmin: {}, byAdminDaily: {} };
@@ -168,19 +180,20 @@ function getAdminPersonalAgg_(start, end, unitFilter) {
     var dt = (d instanceof Date) ? d : new Date(d);
     if (isNaN(dt) || dt < startD || dt > endD) continue;
 
-    var unit = String(row[col.unit] || '').trim();
+    var unitNorm = normalizeUnitCode_(row[col.unit]);
     var admin = String(row[col.admin] || '').trim();
     if (!admin) continue;
-    if (unitFilter && unitFilter !== 'ทั้งหมด' && normalizeUnitCode_(unit) !== unitFilter) continue;
+    if (unitFilter && unitFilter !== 'ทั้งหมด' && unitNorm !== unitFilter) continue;
 
-    if (!byAdmin[admin]) {
-      byAdmin[admin] = {
+    var key = unitNorm + '|' + admin;
+    if (!byAdmin[key]) {
+      byAdmin[key] = {
         sales_total: 0, sales_new: 0, sales_old: 0,
         orders_total: 0, orders_new: 0, orders_old: 0,
         closeSum: 0, closeCount: 0
       };
     }
-    var g = byAdmin[admin];
+    var g = byAdmin[key];
     var rowSales = num_(row[col.sales_total]);
     g.sales_total += rowSales;
     g.sales_new += num_(row[col.sales_new]);
@@ -192,8 +205,8 @@ function getAdminPersonalAgg_(start, end, unitFilter) {
     if (!isNaN(closeVal)) { g.closeSum += closeVal; g.closeCount++; }
 
     var dateKey = Utilities.formatDate(dt, Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd');
-    if (!byAdminDaily[admin]) byAdminDaily[admin] = {};
-    byAdminDaily[admin][dateKey] = (byAdminDaily[admin][dateKey] || 0) + rowSales;
+    if (!byAdminDaily[key]) byAdminDaily[key] = {};
+    byAdminDaily[key][dateKey] = (byAdminDaily[key][dateKey] || 0) + rowSales;
   }
 
   return { byAdmin: byAdmin, byAdminDaily: byAdminDaily };
@@ -389,7 +402,17 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
   var result = Object.keys(byAdmin).map(function (k) {
     var g = byAdmin[k];
     var pageNames = Object.keys(g.pages).map(function (pk) { return g.pages[pk]; }).sort();
-    var p = personalAgg.byAdmin[g.admin];
+    // จับคู่กับ staging_รายคน ผ่าน "หน่วย|ชื่อเล่น" (ไม่ใช่แค่ชื่อเล่นเฉยๆ — ชื่อเล่นซ้ำข้ามยูนิตได้)
+    // รวมทุกยูนิตที่แอดมินคนนี้มีเพจอยู่ (ปกติมีแค่ยูนิตเดียว แต่เผื่อกรณีดูแลข้ามยูนิต)
+    var p = null;
+    Object.keys(g.units).forEach(function (u) {
+      var match = personalAgg.byAdmin[u + '|' + adminNick_(g.admin)];
+      if (!match) return;
+      if (!p) p = { sales_total: 0, sales_new: 0, sales_old: 0, orders_total: 0, orders_new: 0, orders_old: 0, closeSum: 0, closeCount: 0 };
+      p.sales_total += match.sales_total; p.sales_new += match.sales_new; p.sales_old += match.sales_old;
+      p.orders_total += match.orders_total; p.orders_new += match.orders_new; p.orders_old += match.orders_old;
+      p.closeSum += match.closeSum; p.closeCount += match.closeCount;
+    });
     var hasReal = !!p && (p.sales_total !== 0 || p.orders_total !== 0);
 
     var salesTotal = hasReal ? p.sales_total : g.sales_total;
@@ -443,7 +466,15 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
   var dailySeries = null;
   if (byDate) {
     // ถ้ามีข้อมูลจริงรายคนของคนนี้ในแท็บ staging_รายคน ใช้กราฟแนวโน้มจากข้อมูลจริงแทนค่าประมาณ full-credit
-    var realDaily = personalAgg.byAdminDaily[adminFilter];
+    // หาหน่วยของแอดมินคนนี้จาก byAdmin ที่รวบรวมไว้แล้วด้านบน (ต้องผูกหน่วยด้วย ไม่ใช่แค่ชื่อเล่น — ดูเหตุผลที่ getAdminPersonalAgg_)
+    var filterUnits = byAdmin[adminFilter] ? Object.keys(byAdmin[adminFilter].units) : [];
+    var realDaily = null;
+    filterUnits.forEach(function (u) {
+      var d2 = personalAgg.byAdminDaily[u + '|' + adminNick_(adminFilter)];
+      if (!d2) return;
+      if (!realDaily) realDaily = {};
+      Object.keys(d2).forEach(function (dk) { realDaily[dk] = (realDaily[dk] || 0) + d2[dk]; });
+    });
     var sourceDaily = (realDaily && Object.keys(realDaily).length) ? realDaily : byDate;
     dailySeries = Object.keys(sourceDaily).sort().map(function (dk) {
       return { date: dk, sales_total: round2_(sourceDaily[dk]) };

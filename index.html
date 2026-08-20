@@ -570,7 +570,7 @@ function switchView(v){
   view=v;
   closeSidebar();
   var isPageLike=(v==='pages'||v==='people'), wasPageLike=(prevView==='pages'||prevView==='people');
-  if(isPageLike&&!wasPageLike) enterPagesUnitMode(); else if(!isPageLike&&wasPageLike) exitPagesUnitMode();
+  if(isPageLike&&(!wasPageLike||v!==prevView)) enterPagesUnitMode(); else if(!isPageLike&&wasPageLike) exitPagesUnitMode();
   el('navDaily').classList.toggle('on',v==='daily');
   el('navMonthly').classList.toggle('on',v==='monthly');
   el('navYearly').classList.toggle('on',v==='yearly');
@@ -1440,9 +1440,26 @@ function loadPageUnitsList(cb){
   if(pageUnitsCache){ cb(pageUnitsCache); return; }
   callPageApi({mode:'units'},function(d){ pageUnitsCache=(d&&d.units)||[]; cb(pageUnitsCache); },function(){ cb([]); });
 }
+/* ---------- dropdown "หน่วย (Unit)" ของแท็บสถิติรายคน — แยกจากของสถิติรายเพจ เพราะคอลัมน์ unit ใน
+   Staging Sheet มีค่าเพี้ยนปนอยู่บ้าง (เช่น "U9 ชาสมุนไพรแม่แย้ม" ปนกับ "U9" ล้วนๆ) ทำให้เลือกยูนิตแล้ว
+   ไม่เจอข้อมูลของอีกกลุ่ม — mode=admin_units ฝั่ง backend ตัดเหลือแค่รหัสยูนิตล้วน (เช่น U9, U5 ลาว)
+   ก่อนส่งมา ไม่กระทบ mode=units/pageUnitsHtml ของสถิติรายเพจด้านบนเลย ---------- */
+var adminUnitsHtml=null, adminUnitsCache=null;
+function loadAdminUnitsList(cb){
+  if(adminUnitsCache){ cb(adminUnitsCache); return; }
+  callPageApi({mode:'admin_units'},function(d){ adminUnitsCache=(d&&d.units)||[]; cb(adminUnitsCache); },function(){ cb([]); });
+}
 function enterPagesUnitMode(){
   el('unitLabel').style.display='block';el('unitPick').style.display='block';
   el('unitPick').onchange=onUnitPickChange;
+  if(view==='people'){
+    if(adminUnitsHtml){ el('unitPick').innerHTML=adminUnitsHtml; el('unitPick').value=curPageUnit||'ทั้งหมด'; return; }
+    loadAdminUnitsList(function(units){
+      adminUnitsHtml=buildUnitHtml(units,[]);
+      if(view==='people'){ el('unitPick').innerHTML=adminUnitsHtml; el('unitPick').value=curPageUnit||'ทั้งหมด'; }
+    });
+    return;
+  }
   if(pageUnitsHtml){ el('unitPick').innerHTML=pageUnitsHtml; el('unitPick').value=curPageUnit||'ทั้งหมด'; return; }
   loadPageUnitsList(function(units){
     pageUnitsHtml=buildUnitHtml(units,[]);

@@ -59,6 +59,8 @@ function doGet(e) {
     if (p.token !== TOKEN) throw new Error('Unauthorized');
     if (p.mode === 'units') {
       out = getPageUnits();
+    } else if (p.mode === 'admin_units') {
+      out = getAdminUnits_();
     } else if (p.mode === 'admin_stats') {
       var startA = p.start, endA = p.end;
       if (!startA || !endA) throw new Error('missing start/end');
@@ -88,6 +90,33 @@ function getPageUnits() {
   var seen = {}, units = [];
   for (var r = 1; r < values.length; r++) {
     var u = String(values[r][col.unit] || '').trim();
+    if (u && !seen[u]) { seen[u] = true; units.push(u); }
+  }
+  units.sort();
+  return { units: units };
+}
+
+// ตัดคอลัมน์ unit ดิบให้เหลือแค่รหัสยูนิตล้วน เช่น "U9 ชาสมุนไพรแม่แย้ม" → "U9", "U5 ลาว Capsule" → "U5 ลาว"
+// เผื่อคอลัมน์ unit ใน Staging มีข้อความต่อท้ายปนมา (เจอจริงกับ U9 — บางแถวเป็น "U9" ล้วนๆ บางแถวมีชื่อ
+// เพจต่อท้าย) ถ้าไม่ normalize ก่อน การกรองยูนิตแบบ exact-match จะพลาดข้อมูลอีกฝั่งไปเงียบๆ
+function normalizeUnitCode_(raw) {
+  raw = String(raw || '').trim();
+  var m = raw.match(/^([A-Za-z]+\d+)(\s*ลาว)?/);
+  return m ? (m[1] + (m[2] ? ' ลาว' : '')) : raw;
+}
+
+// รายชื่อยูนิต (normalize แล้ว) สำหรับ dropdown "หน่วย (Unit)" ของแท็บ "สถิติรายคน" โดยเฉพาะ — แยกจาก
+// getPageUnits() ของแท็บ "สถิติรายเพจ" ไม่ให้กระทบกัน เพราะแท็บนั้นใช้ unit ดิบตรงๆ อยู่แล้วและทำงานปกติดี
+function getAdminUnits_() {
+  var sh = getSheet_();
+  var values = sh.getDataRange().getValues();
+  if (values.length < 2) return { units: [] };
+  var header = values[0], col = {};
+  header.forEach(function (h, i) { col[String(h).trim()] = i; });
+  if (!('unit' in col)) throw new Error('ไม่พบคอลัมน์ unit ในชีต');
+  var seen = {}, units = [];
+  for (var r = 1; r < values.length; r++) {
+    var u = normalizeUnitCode_(values[r][col.unit]);
     if (u && !seen[u]) { seen[u] = true; units.push(u); }
   }
   units.sort();
@@ -240,7 +269,9 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     // ต้องแยกทีละคนแล้วให้เครดิตยอดของเพจนั้นกับทุกคนที่ดูแลเพจนั้นจริง
     var admins = String(row[col.admin] || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     if (!page || !admins.length) continue;
-    if (unitFilter && unitFilter !== 'ทั้งหมด' && unit !== unitFilter) continue;
+    // เทียบยูนิตแบบ normalize แล้ว (ไม่ใช่ exact-match ตรงๆ เหมือน getPageStats) เพราะคอลัมน์ unit ใน
+    // Staging มีค่าเพี้ยนปนอยู่บ้าง (เช่น "U9 ชาสมุนไพรแม่แย้ม" ปนกับ "U9" ล้วนๆ) — ดู normalizeUnitCode_()
+    if (unitFilter && unitFilter !== 'ทั้งหมด' && normalizeUnitCode_(unit) !== unitFilter) continue;
 
     var dailyChatsAds = num_(row[col.chats_ads]);
     var closeVal = pct_(row[col.close_rate_new]);
@@ -263,7 +294,7 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
         };
       }
       var g = byAdmin[admin];
-      if (unit) g.units[unit] = true;
+      if (unit) g.units[normalizeUnitCode_(unit)] = true;
       g.pages[unit + '|' + page] = page;
       g.ad_spend += num_(row[col.ad_spend]);
       g.chats_ads += num_(row[col.chats_ads]);

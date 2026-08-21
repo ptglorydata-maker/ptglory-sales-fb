@@ -68,6 +68,11 @@ function doGet(e) {
       var startA = p.start, endA = p.end;
       if (!startA || !endA) throw new Error('missing start/end');
       out = getAdminStats(startA, endA, p.unit || '', p.admin || '');
+    } else if (p.mode === 'da_debug') {
+      // ดีบั๊ก: โชว์แถวดิบทุกแถวจากไฟล์ "Data กลางทีม DA" ที่ถูกรวมเข้าเป็น sales_total ของคนคนหนึ่งในเดือนหนึ่ง
+      // ใช้เช็คว่ามีแถวซ้ำ/นับเกินจริงไหม เรียกด้วย ?mode=da_debug&admin=<ชื่อเต็มตรงคอลัมน์D>&month=YYYY-MM&token=...
+      if (!p.admin || !p.month) throw new Error('missing admin/month (เช่น admin=ใบพลู (ปิยกรณ์)&month=2026-08)');
+      out = getDaDebugRows_(p.admin, p.month);
     } else {
       var start = p.start, end = p.end;
       if (!start || !end) throw new Error('missing start/end');
@@ -735,6 +740,25 @@ function aggregateDaRows_(rows, unitFilter) {
     if (!isNaN(row.errVal)) { a.errSum += row.errVal; a.errCount++; }
   });
   return acc;
+}
+
+// ดีบั๊ก: คืนทุกแถวดิบของคนคนหนึ่งในเดือนหนึ่งจากไฟล์ Data กลางทีม DA พร้อมยอดรวม — ใช้เช็คว่า sales_total
+// ที่ leaderboard โชว์ มาจากการรวมกี่แถว แถวไหนบ้าง (ถ้ามีแถวซ้ำ unit เดียวกันปนอยู่ แปลว่าข้อมูลต้นทาง
+// ในไฟล์ DA เองซ้ำ/พิมพ์ผิด ไม่ใช่บั๊กจากโค้ดฝั่งนี้) key เทียบแบบ normalizeAdminKey_ เหมือน getAdminStats()
+function getDaDebugRows_(adminExact, month) {
+  var key = normalizeAdminKey_(adminExact);
+  key = DA_NAME_ALIASES_[key] || key;
+  var allRows = getDaTeamMonthRowsCached_(month);
+  var matched = allRows.filter(function (r) { return r.key === key; });
+  var salesSum = matched.reduce(function (s, r) { return s + r.salesTotal; }, 0);
+  return {
+    admin_input: adminExact,
+    normalized_key: key,
+    month: month,
+    row_count: matched.length,
+    sales_total_sum: round2_(salesSum),
+    rows: matched
+  };
 }
 
 // ยอดขายรวมเดือน/%ปิดการขาย/เปอร์บิล/%ตีกลับ "ของจริงรายคน" รวมทุกยูนิต — ใช้กับ getAdminKpi_()/

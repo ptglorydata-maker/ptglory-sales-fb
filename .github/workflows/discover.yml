@@ -43,8 +43,8 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/service-account.json
 
-      - name: 'Peek DA team central file (list tabs)'
+      - name: 'Peek DA team central file (Data_All Unit in 69)'
         working-directory: etl
-        run: python sync_pages.py --peek-sheet "1fvcBHub0z_xI6O_7Ml3MYNnzq-dJJl-g6NqFX0bTVb0"
+        run: python sync_pages.py --peek-sheet "1fvcBHub0z_xI6O_7Ml3MYNnzq-dJJl-g6NqFX0bTVb0" "Data_All Unit in 69" 20
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/service-account.json

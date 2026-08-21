@@ -414,7 +414,10 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
   var result = Object.keys(byAdmin).map(function (k) {
     var g = byAdmin[k];
     var pageNames = Object.keys(g.pages).map(function (pk) { return g.pages[pk]; }).sort();
-    var a = daAgg[normalizeAdminKey_(adminNick_(g.admin))];
+    // daAgg มาจากไฟล์ DA ที่คีย์ด้วยชื่อเต็ม "ชื่อเล่น (ชื่อจริง)" ทั้งสตริง (ตัดแค่ช่องว่าง) ไม่ใช่ชื่อเล่น
+    // เฉยๆ (adminNick_) แบบที่ใช้กับแท็บ ค่าคอมแอดมิน เดิม — ต้องคีย์ให้ตรงฟอร์แมตของไฟล์ DA ไม่งั้นจับคู่
+    // ไม่ติดเลยสักคน (พังแบบเงียบๆ กลับไปใช้ค่าประมาณ full-credit เดิมทุกคนโดยไม่รู้ตัว)
+    var a = daAgg[normalizeAdminKey_(g.admin)];
     var hasReal = !!a && (a.salesSum !== 0 || a.ordersSum !== 0);
 
     var salesTotal = hasReal ? a.salesSum : g.sales_total;

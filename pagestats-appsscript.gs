@@ -49,7 +49,10 @@ var TOKEN = 'glory_pg_0922541941'; // ต้องตรงกับ PAGE_API_TO
 var SHEET_GID = 851624242; // แท็บ "staging_รายเพจ" (จาก URL ...?gid=851624242)
 var ROSTER_SHEET_ID = '1vjZ2ERd1Q-OAX5yYOgDztemVuF4samjSE5BXZ5snprA'; // "test-รายงานเพจ FB" (master catalog)
 var KPI_SHEET_ID = '1a7Z1U3FouP7GeFMQ0D8yKUQOd9ZMgkJGxh0PFBLt5g0'; // "KPI ฝ่ายขาย FB 2569 (PT GLORY)"
-var KPI_TAB_GID = 1293185359; // แท็บ "KPI แอดมิน"
+var KPI_TAB_GID = 1293185359; // แท็บ "KPI แอดมิน" — ยังใช้อยู่เฉพาะเป้า/คะแนน/สถานะ (ไม่มีในไฟล์ DA)
+var DA_TEAM_SHEET_ID = '1fvcBHub0z_xI6O_7Ml3MYNnzq-dJJl-g6NqFX0bTVb0'; // "Data กลางทีม DA" (ข้อมูลกลางของทีม)
+var DA_TEAM_TAB = 'Data_All Unit in 69'; // ยอดขายรวมเดือน/%ปิดการขาย/เปอร์บิล/%ตีกลับ รายคนจริง — แหล่งหลักตอนนี้
+var DA_TEAM_YEAR = 2026; // ไฟล์นี้ไม่มีคอลัมน์ปี มีแต่ "เดือน" (1-12) — ข้อมูลทั้งไฟล์เป็นปี 2569 เท่านั้น
 // ==========================================
 
 function doGet(e) {
@@ -663,29 +666,101 @@ function getKpiMonthDataCached_(month) {
   return result;
 }
 
-// % ปิดการขาย (รวม) และ % ตีกลับ ของแอดมินคนเดียว (ชื่อเล่น) ทุกเดือนที่คาบเกี่ยวกับ [start,end]
+// ตัดช่องว่างทั้งหมดออกก่อนเทียบ — คอลัมน์ "ชื่อจากไฟล์ต้น" ในไฟล์ Data กลางทีม DA พิมพ์ไม่สม่ำเสมอ
+// (บางแถว "เบลล์ (ดาราวดี)" มีวรรค บางแถว "เบลล์(ดาราวดี)" ไม่มีวรรค) ทั้งที่เป็นคนเดียวกัน
+function normalizeAdminKey_(s) { return String(s || '').replace(/\s+/g, ''); }
+
+// ยอดขายรวมเดือน/%ปิดการขาย/เปอร์บิล/%ตีกลับ "ของจริงรายคน" จากไฟล์ Data กลางทีม DA (Data_All Unit in 69)
+// คอลัมน์: D=ชื่อจากไฟล์ต้น(join key ตรงกับ Staging.admin เป๊ะ ยกเว้นช่องว่าง — ดู normalizeAdminKey_),
+// E=ยอดขายทั้งหมด, I=% ตีกลับ, J=เดือน(1-12, ปีเดียวคือ DA_TEAM_YEAR), K=Order รวม,
+// T=เปอร์บิลลูกค้าใหม่, U=% ปิดการขายลูกค้าใหม่, V=% ERROR — cache แบบเดียวกับ KPI เดิม (5 นาที/เดือน)
+function getDaTeamMonthDataCached_(month) {
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'da_team_month_v1_' + month;
+  var cached = cache.get(cacheKey);
+  if (cached) { try { return JSON.parse(cached); } catch (e) { /* cache เพี้ยน อ่านใหม่ */ } }
+
+  var result = {};
+  var y = parseInt(month.slice(0, 4), 10), targetMonthNum = parseInt(month.slice(5, 7), 10);
+  if (y === DA_TEAM_YEAR) {
+    var sh = SpreadsheetApp.openById(DA_TEAM_SHEET_ID).getSheetByName(DA_TEAM_TAB);
+    if (!sh) throw new Error('ไม่พบแท็บ "' + DA_TEAM_TAB + '" ในไฟล์ Data กลางทีม DA');
+    var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    if (lastRow > 1) {
+      var values = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+      for (var r = 0; r < values.length; r++) {
+        var row = values[r];
+        var name = String(row[3] || '').trim();
+        if (!name) continue; // แถวเปล่า (เดือนที่ยังไม่มีข้อมูลจริง ระบบเว้นที่ไว้ล่วงหน้า)
+        if (parseInt(row[9], 10) !== targetMonthNum) continue;
+        result[normalizeAdminKey_(name)] = {
+          month: month,
+          sales_actual: num_(row[4]),
+          bounce_rate: pct_(row[8]),
+          orders_total: num_(row[10]),
+          aov_actual: num_(row[19]),
+          close_rate_total: pct_(row[20]),
+          error_pct: pct_(row[21])
+        };
+      }
+    }
+  }
+  try { cache.put(cacheKey, JSON.stringify(result), 300); } catch (e) { }
+  return result;
+}
+
+// % ปิดการขาย (รวม), เปอร์บิล, % ตีกลับ, ยอดขายรวมเดือน ของแอดมินคนเดียว ทุกเดือนที่คาบเกี่ยวกับ [start,end]
+// ค่าจริง 4 ตัวนี้มาจากไฟล์ Data กลางทีม DA (join ตรงด้วยชื่อ ไม่ต้องพึ่งรหัสพนักงาน) ส่วนเป้า/คะแนน/สถานะ
+// KPI ยังต้องอ่านจากไฟล์ "KPI ฝ่ายขาย FB 2569" เหมือนเดิม เพราะไฟล์ DA ไม่มีคอลัมน์เป้าให้
 function getAdminKpi_(adminNickname, start, end) {
   var months = monthsBetween_(start, end);
+  var key = normalizeAdminKey_(adminNickname);
   var monthsOut = [];
   months.forEach(function (mm) {
-    var entry = getKpiMonthDataCached_(mm)[adminNickname];
-    if (entry) monthsOut.push(entry);
+    var da = getDaTeamMonthDataCached_(mm)[key];
+    var kpi = null;
+    try { kpi = getKpiMonthDataCached_(mm)[adminNickname]; } catch (e) { /* ไฟล์ KPI เดิมพังก็ไม่เป็นไร ยังมีค่าจาก DA */ }
+    if (!da && !kpi) return;
+    monthsOut.push({
+      month: mm,
+      label: kpi ? kpi.label : mm,
+      sales_actual: da ? da.sales_actual : (kpi ? kpi.sales_actual : null),
+      close_rate_total: da ? da.close_rate_total : (kpi ? kpi.close_rate_total : null),
+      aov_actual: da ? da.aov_actual : (kpi ? kpi.aov_actual : null),
+      bounce_rate: da ? da.bounce_rate : (kpi ? kpi.bounce_rate : null),
+      has_targets: !!(kpi && kpi.has_targets),
+      sales_target: kpi ? kpi.sales_target : null,
+      close_target: kpi ? kpi.close_target : null,
+      aov_target: kpi ? kpi.aov_target : null,
+      bounce_target: kpi ? kpi.bounce_target : null,
+      score: kpi ? kpi.score : null,
+      status: kpi ? kpi.status : ''
+    });
   });
-  if (!monthsOut.length) return { found: false, reason: 'ไม่พบข้อมูล KPI ของ "' + adminNickname + '" ในช่วงเดือนที่เลือก (เช็คว่ามีในไฟล์รายชื่อ/ไฟล์ KPI ไหม)' };
+  if (!monthsOut.length) return { found: false, reason: 'ไม่พบข้อมูลของ "' + adminNickname + '" ในช่วงเดือนที่เลือก (เช็คว่ามีในไฟล์ Data กลางทีม DA ไหม)' };
   return { found: true, months: monthsOut };
 }
 
-// สถานะ KPI (ผ่าน/ไม่ผ่าน) + คะแนนรวม + % ตีกลับ ของ "หลายคนพร้อมกัน" สำหรับหน้าจัดอันดับ (leaderboard)
-// ใช้เดือนล่าสุดที่คาบเกี่ยวกับ [start,end] เดือนเดียว (ไม่ใช่ทุกเดือนในช่วง) เพราะแค่ต้องการป้ายสถานะ
+// สถานะ KPI (ผ่าน/ไม่ผ่าน) + คะแนนรวม (จากไฟล์ KPI เดิม) + % ตีกลับ (จากไฟล์ DA) ของ "หลายคนพร้อมกัน"
+// สำหรับหน้าจัดอันดับ (leaderboard) — ใช้เดือนล่าสุดที่คาบเกี่ยวกับ [start,end] เดือนเดียว
 function getKpiStatusBatch_(adminNicknames, start, end) {
   var out = {};
   if (!adminNicknames.length) return out;
   var months = monthsBetween_(start, end);
   var lastMonth = months[months.length - 1];
-  var monthData = getKpiMonthDataCached_(lastMonth);
+  var daMonthData = getDaTeamMonthDataCached_(lastMonth);
+  var kpiMonthData = {};
+  try { kpiMonthData = getKpiMonthDataCached_(lastMonth); } catch (e) { /* ไฟล์ KPI เดิมพังก็ไม่เป็นไร ยังมีค่าจาก DA */ }
   adminNicknames.forEach(function (nick) {
-    var e = monthData[nick];
-    if (e) out[nick] = { month: e.month, score: e.score, status: e.status, bounce_rate: e.bounce_rate };
+    var da = daMonthData[normalizeAdminKey_(nick)];
+    var kpi = kpiMonthData[nick];
+    if (!da && !kpi) return;
+    out[nick] = {
+      month: lastMonth,
+      score: kpi ? kpi.score : null,
+      status: kpi ? kpi.status : '',
+      bounce_rate: da ? da.bounce_rate : (kpi ? kpi.bounce_rate : null)
+    };
   });
   return out;
 }

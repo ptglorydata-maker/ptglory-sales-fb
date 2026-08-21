@@ -105,6 +105,7 @@
   .tag.page{color:var(--ink-2);background:var(--page);border:1px solid var(--line);font-size:12px;padding:5px 12px}
   .tag.pass{color:#1a7a4c;background:#E1F3E9}
   .tag.fail{color:#B4452F;background:var(--coral-soft)}
+  .tag.est{color:#8A5A2A;background:var(--amber-soft);cursor:help}
   /* ---------- สถิติรายคน: จัดอันดับยอดขาย (leaderboard) ---------- */
   :root{--gold:#C9942D;--gold-soft:#FBF1DC;--silver:#8C8C96;--silver-soft:#F1F1F3;--bronze:#B0673A;--bronze-soft:#FBE9DD}
   .podium{grid-template-columns:1fr 1.08fr 1fr;align-items:end}
@@ -923,6 +924,12 @@ function kpiStatusTag(status){
   var pass=/ผ่าน/.test(status.status)&&!/ไม่ผ่าน/.test(status.status);
   return '<span class="tag '+(pass?'pass':'fail')+'">'+(pass?'✅ ':'⚠️ ')+esc(status.status)+'</span>';
 }
+// ป้าย "≈ ประมาณ" — โชว์เฉพาะแถวที่ backend หาข้อมูลจริงรายคนจากไฟล์ Data กลางทีม DA ไม่เจอ (per_admin_real_data=false)
+// เลยต้อง fallback ไปใช้ค่าประมาณ full-credit จาก Staging (ยอดเต็มของเพจที่ดูแลร่วมกัน ไม่หารครึ่ง — อาจสูงกว่าความจริง)
+function dataSrcTag(isReal){
+  if(isReal) return '';
+  return '<span class="tag est" title="ไม่พบข้อมูลจริงของคนนี้ในไฟล์ Data กลางทีม DA ช่วงที่เลือก — ยอดนี้เป็นค่าประมาณเต็มจากเพจที่ดูแลร่วมกัน (ไม่หารครึ่ง) จึงอาจสูงกว่าความจริง">≈ ประมาณ</span>';
+}
 // %ตีกลับ รายคน สำหรับ leaderboard — ใช้เป้า 3% เดียวกับที่ไฟล์ KPI ตั้งไว้เป็นเกณฑ์สี (ยิ่งต่ำยิ่งดี)
 function bounceMeta(status){
   if(!status||status.bounce_rate==null) return 'ตีกลับ —';
@@ -947,7 +954,7 @@ function renderLeaderboard(rows){
       +'<span class="ptag">'+kpiStatusTag(r.kpi_status)+'</span>'
       +'<div class="pname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div>'
       +'<div class="psales num">'+baht(r.sales_total)+'</div>'
-      +'<div class="pmeta"><span>เปอร์บิล <b class="num">'+baht(r.aov)+'</b></span><span>%ปิดใหม่ <b class="num">'+num1(r.close_rate_new,'%')+'</b></span><span>'+bounceMeta(r.kpi_status)+'</span></div>'
+      +'<div class="pmeta"><span>เปอร์บิล <b class="num">'+baht(r.aov)+'</b></span><span>%ปิดใหม่ <b class="num">'+num1(r.close_rate_new,'%')+'</b></span><span>'+bounceMeta(r.kpi_status)+'</span>'+(r.per_admin_real_data?'':'<span>'+dataSrcTag(r.per_admin_real_data)+'</span>')+'</div>'
       +'</div>';
   }).join('');
 
@@ -965,7 +972,7 @@ function renderLeaderboard(rows){
       +'<div class="lname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div>'
       +'<div class="lbar"><div class="lfill" style="width:'+pct+'%"></div></div>'
       +'<div class="lsales num">'+baht(r.sales_total)+'</div>'
-      +'<div class="lmeta">เปอร์บิล '+baht(r.aov)+' · %ปิดใหม่ '+num1(r.close_rate_new,'%')+' · '+bounceMeta(r.kpi_status)+'</div>'
+      +'<div class="lmeta">เปอร์บิล '+baht(r.aov)+' · %ปิดใหม่ '+num1(r.close_rate_new,'%')+' · '+bounceMeta(r.kpi_status)+(r.per_admin_real_data?'':' · '+dataSrcTag(r.per_admin_real_data))+'</div>'
       +'<div class="ltag">'+(kpiStatusTag(r.kpi_status)||'<span class="vs">—</span>')+'</div>'
       +'</div>';
   }).join('');

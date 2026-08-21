@@ -37,9 +37,21 @@ jobs:
           UNIT: ${{ inputs.unit }}
           TAB: ${{ inputs.tab }}
 
-      - name: 'Peek staging_รายคน (debug: verify real per-admin rows landed)'
+      - name: 'Peek staging_รายคน for เว/เวย์ (debug: U12 name collision investigation)'
         working-directory: etl
-        run: python sync_pages.py --peek-admin-staging "อ้อม" "2026-08"
+        run: python sync_pages.py --peek-admin-staging "เว" "2026-08"
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/service-account.json
+
+      - name: 'Peek ค่าคอมแอดมิน tab detail for U12'
+        working-directory: etl
+        run: python sync_pages.py --discover "U12" "ค่าคอมแอดมิน"
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/service-account.json
+
+      - name: 'Peek U12 master catalog (roster) for เว/เวย์'
+        working-directory: etl
+        run: python sync_pages.py --catalog "U12"
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/service-account.json
 

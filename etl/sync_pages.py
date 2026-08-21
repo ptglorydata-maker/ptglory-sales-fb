@@ -1059,6 +1059,27 @@ def main():
             print(r)
         return
 
+    if "--peek-sheet" in args:
+        idx = args.index("--peek-sheet")
+        sheet_id = args[idx + 1] if idx + 1 < len(args) else None
+        tab_name = args[idx + 2] if idx + 2 < len(args) else ""
+        n_rows = int(args[idx + 3]) if idx + 3 < len(args) and args[idx + 3] else 15
+        if not sheet_id:
+            print("ใช้งาน: python sync_pages.py --peek-sheet <SHEET_ID> [\"ชื่อ tab\"] [n_rows]")
+            return
+        sh = call_with_retry(get_client().open_by_key, sheet_id)
+        if not tab_name:
+            print(f"=== Tabs ทั้งหมดในไฟล์ ===")
+            for ws in sh.worksheets():
+                print(f"- '{ws.title}'  (gid={ws.id}, rows={ws.row_count}, cols={ws.col_count})")
+            return
+        ws = call_with_retry(sh.worksheet, tab_name)
+        values = call_with_retry(ws.get_all_values)
+        print(f"=== '{tab_name}' รวม {len(values)} แถว, {len(values[0]) if values else 0} คอลัมน์ — {n_rows} แถวแรก ===")
+        for i, row in enumerate(values[:n_rows]):
+            print(f"row {i + 1}: {row}")
+        return
+
     if "--catalog" in args:
         idx = args.index("--catalog")
         unit_label = args[idx + 1] if idx + 1 < len(args) else None

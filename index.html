@@ -260,11 +260,7 @@
       <select id="unitPick" style="display:none; background-color: white; color: #333333;"></select>
       <div id="ctrlPeopleRange" class="hide">
         <label>เลือกช่วงเวลา</label>
-        <select id="rangePickPeople" style="background-color:white;color:#333333">
-          <option value="this_month" selected>เดือนนี้</option>
-          <option value="quarter">ไตรมาสนี้</option>
-          <option value="year">ปีนี้</option>
-        </select>
+        <select id="rangePickPeople" style="background-color:white;color:#333333"></select>
       </div>
       <div id="ctrlPeopleAdmin" class="hide">
         <label>เลือกแอดมิน</label>
@@ -637,11 +633,31 @@ function rangeDatesFor(pickId,startId,endId){
   else if(p==='30d'){s.setDate(s.getDate()-29);}
   else if(p==='this_month'){s=new Date(now.getFullYear(),now.getMonth(),1);}
   else if(p==='last_month'){s=new Date(now.getFullYear(),now.getMonth()-1,1);e=new Date(now.getFullYear(),now.getMonth(),0);}
-  else if(p==='quarter'){var q=Math.floor(now.getMonth()/3);s=new Date(now.getFullYear(),q*3,1);}
-  else if(p==='year'){s=new Date(now.getFullYear(),0,1);}
+  else if(/^\d{4}-\d{2}$/.test(p)){var yy=parseInt(p.slice(0,4),10),mm=parseInt(p.slice(5,7),10);s=new Date(yy,mm-1,1);e=new Date(yy,mm,0);}
+  else if(/^q[1-4]-\d{4}$/.test(p)){var qm=p.match(/^q([1-4])-(\d{4})$/),qi=parseInt(qm[1],10)-1,qy=parseInt(qm[2],10);s=new Date(qy,qi*3,1);e=new Date(qy,qi*3+3,0);}
+  else if(/^y\d{4}$/.test(p)){var yy2=parseInt(p.slice(1),10);s=new Date(yy2,0,1);e=new Date(yy2,11,31);}
   else if(p==='custom'){var cs=el(startId).value,ce=el(endId).value;if(!cs||!ce)return null;return {start:cs,end:ce};}
+  if(e>now) e=new Date(now); // อย่าขอข้อมูลอนาคต (เผื่อเลือกเดือน/ไตรมาส/ปีที่ยังไม่ถึง)
   return {start:iso(s),end:iso(e)};
 }
+var THAI_MONTHS_SHORT_=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function buildPeopleRangeOptions(){
+  var now=new Date(),y=now.getFullYear(),curMonth=y+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var beShort=String(y+543).slice(-2); // พ.ศ. 2 หลัก เช่น 2026 -> 69
+  var html='<optgroup label="รายเดือน">';
+  for(var m=1;m<=12;m++){
+    var v=y+'-'+String(m).padStart(2,'0');
+    html+='<option value="'+v+'"'+(v===curMonth?' selected':'')+'>'+THAI_MONTHS_SHORT_[m-1]+' '+beShort+'</option>';
+  }
+  html+='</optgroup><optgroup label="รายไตรมาส">';
+  var qLabels=['ม.ค.-มี.ค.','เม.ย.-มิ.ย.','ก.ค.-ก.ย.','ต.ค.-ธ.ค.'];
+  for(var q=1;q<=4;q++){
+    html+='<option value="q'+q+'-'+y+'">ไตรมาส '+q+' ('+qLabels[q-1]+')</option>';
+  }
+  html+='</optgroup><optgroup label="รายปี"><option value="y'+y+'">ปี '+(y+543)+'</option></optgroup>';
+  el('rangePickPeople').innerHTML=html;
+}
+buildPeopleRangeOptions();
 function rangeDates(){ return rangeDatesFor('rangePick','rangeStart','rangeEnd'); }
 var rangeCache={};
 function loadRange(){

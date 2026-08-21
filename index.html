@@ -258,6 +258,14 @@
 
       <label id="unitLabel" style="display:none">หน่วย (Unit)</label>
       <select id="unitPick" style="display:none; background-color: white; color: #333333;"></select>
+      <div id="ctrlPeopleRange" class="hide">
+        <label>เลือกช่วงเวลา</label>
+        <select id="rangePickPeople" style="background-color:white;color:#333333">
+          <option value="this_month" selected>เดือนนี้</option>
+          <option value="quarter">ไตรมาสนี้</option>
+          <option value="year">ปีนี้</option>
+        </select>
+      </div>
       <div id="ctrlPeopleAdmin" class="hide">
         <label>เลือกแอดมิน</label>
         <select id="adminPick" style="background-color:white;color:#333333">
@@ -586,7 +594,8 @@ function switchView(v){
   el('ctrlDaily').classList.toggle('hide',v!=='daily');
   el('ctrlMonthly').classList.toggle('hide',v==='monthly'?false:true);
   el('ctrlRange').classList.toggle('hide',v!=='range');
-  el('ctrlPages').classList.toggle('hide',!isPageLike);
+  el('ctrlPages').classList.toggle('hide',v!=='pages');
+  el('ctrlPeopleRange').classList.toggle('hide',v!=='people');
   el('ctrlPeopleAdmin').classList.toggle('hide',v!=='people');
   el('pageTitle').textContent=v==='daily'?'รายงานยอดขายรายวัน':(v==='monthly'?'ภาพรวมยอดขายรายเดือน':(v==='yearly'?'ภาพรวมยอดขายรายปี':(v==='pages'?'สถิติรายเพจ':(v==='people'?'สถิติรายคน':'สรุปยอดขายตามช่วงเวลา'))));
   if(v==='monthly'){ if(monthlyCache){ try{ renderMonthly(monthlyCache); }catch(e){ monthlyCache=null; } if(!monthlyCache||!monthlyCacheFresh) loadMonthly(!!monthlyCache); } else loadMonthly(); }
@@ -628,6 +637,8 @@ function rangeDatesFor(pickId,startId,endId){
   else if(p==='30d'){s.setDate(s.getDate()-29);}
   else if(p==='this_month'){s=new Date(now.getFullYear(),now.getMonth(),1);}
   else if(p==='last_month'){s=new Date(now.getFullYear(),now.getMonth()-1,1);e=new Date(now.getFullYear(),now.getMonth(),0);}
+  else if(p==='quarter'){var q=Math.floor(now.getMonth()/3);s=new Date(now.getFullYear(),q*3,1);}
+  else if(p==='year'){s=new Date(now.getFullYear(),0,1);}
   else if(p==='custom'){var cs=el(startId).value,ce=el(endId).value;if(!cs||!ce)return null;return {start:cs,end:ce};}
   return {start:iso(s),end:iso(e)};
 }
@@ -828,8 +839,7 @@ var curAdminFilter='';
 // เก็บเลขคำขอล่าสุดไว้ ถ้าคำตอบที่กลับมาไม่ใช่ของคำขอล่าสุด ไม่ต้อง render ทับ
 var adminStatsReqSeq=0;
 function loadAdminStats(){
-  el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
-  var rd=rangeDatesFor('rangePick2','rangeStart2','rangeEnd2'); if(!rd){return;}
+  var rd=rangeDatesFor('rangePickPeople','',''); if(!rd){return;}
   var myReq=++adminStatsReqSeq;
   // ส่ง admin ไปด้วยเสมอ (ถ้าเลือกไว้) เพื่อให้ backend คำนวณ "daily"/"kpi" ของคนนั้นมาในคำขอเดียว
   var key=rd.start+'|'+rd.end+'|'+(curPageUnit||'')+'|'+(curAdminFilter||'');
@@ -1492,11 +1502,11 @@ el('datePick').addEventListener('change',function(){loadDaily(this.value);});
 el('rangePick').addEventListener('change',loadRange);
 el('rangeStart').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
 el('rangeEnd').addEventListener('change',function(){if(el('rangePick').value==='custom')loadRange();});
-function loadPageOrAdminStats(){ if(view==='people') loadAdminStats(); else loadPageStats(); }
 el('adminPick').addEventListener('change',onAdminPickChange);
-el('rangePick2').addEventListener('change',loadPageOrAdminStats);
-el('rangeStart2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageOrAdminStats();});
-el('rangeEnd2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageOrAdminStats();});
+el('rangePick2').addEventListener('change',loadPageStats);
+el('rangeStart2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
+el('rangeEnd2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
+el('rangePickPeople').addEventListener('change',loadAdminStats);
 el('refreshBtn').addEventListener('click',function(){
   if(view==='daily')loadDaily(el('datePick').value,true);
   else if(view==='range')loadRange();

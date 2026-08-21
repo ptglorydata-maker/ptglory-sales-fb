@@ -402,47 +402,36 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     });
   }
 
-  // ยอดขาย/ออเดอร์/%ปิดใหม่/เปอร์บิล/ค่าแอด/ต้นทุนทัก/ROAS "ของจริงรายคน" จากแท็บ staging_รายคน
-  // (ดึงจากแท็บ "ค่าคอมแอดมิน" — ดู etl/sync_pages.py) ใช้แทนค่าประมาณแบบ full-credit จาก
-  // staging_รายเพจ ด้านบนเมื่อมีข้อมูลจริงของคนนั้นในช่วงที่เลือก — %ERROR ไม่มีในแท็บนี้ จึงยังคงใช้
-  // ค่าจาก staging_รายเพจ เสมอ (คำนวณระดับเพจ ไม่มีแยกรายคน)
-  var personalAgg = getAdminPersonalAgg_(start, end, unitFilter);
+  // ยอดขาย/ออเดอร์/%ปิดใหม่/เปอร์บิล/%ERROR "ของจริงรายคน" มาจากไฟล์ Data กลางทีม DA เสมอเมื่อมีข้อมูล
+  // ของคนนั้นในช่วง/ยูนิตที่เลือก (แหล่งหลักตามที่ยืนยัน — ไม่ใช้แท็บ ค่าคอมแอดมิน รายวันของแต่ละยูนิต
+  // อีกต่อไป เพราะบางคนไม่มีคอลัมน์อยู่ในนั้นเลย เช่น "เว" ทำให้ตกไปใช้ค่าประมาณ full-credit ที่ผิดเพี้ยน)
+  // ค่าแอด/ROAS/ต้นทุนทัก ยังคงมาจากแท็บเพจเสมอ เพราะไฟล์ DA ไม่มีคอลัมน์งบโฆษณาให้
+  var daRowsAll = [];
+  monthsBetween_(start, end).forEach(function (mm) { daRowsAll = daRowsAll.concat(getDaTeamMonthRowsCached_(mm)); });
+  var daAgg = aggregateDaRows_(daRowsAll, unitFilter);
+  var personalAgg = getAdminPersonalAgg_(start, end, unitFilter); // ยังใช้แค่วาดกราฟแนวโน้มรายวัน (ดูด้านล่าง)
 
   var result = Object.keys(byAdmin).map(function (k) {
     var g = byAdmin[k];
     var pageNames = Object.keys(g.pages).map(function (pk) { return g.pages[pk]; }).sort();
-    // จับคู่กับ staging_รายคน ผ่าน "หน่วย|ชื่อเล่น" (ไม่ใช่แค่ชื่อเล่นเฉยๆ — ชื่อเล่นซ้ำข้ามยูนิตได้)
-    // รวมทุกยูนิตที่แอดมินคนนี้มีเพจอยู่ (ปกติมีแค่ยูนิตเดียว แต่เผื่อกรณีดูแลข้ามยูนิต)
-    var p = null;
-    Object.keys(g.units).forEach(function (u) {
-      var match = personalAgg.byAdmin[u + '|' + adminNick_(g.admin)];
-      if (!match) return;
-      if (!p) p = {
-        sales_total: 0, sales_new: 0, sales_old: 0, orders_total: 0, orders_new: 0, orders_old: 0,
-        closeSum: 0, closeCount: 0, ad_spend: 0, cost_per_chat_sum: 0, cost_per_chat_count: 0
-      };
-      p.sales_total += match.sales_total; p.sales_new += match.sales_new; p.sales_old += match.sales_old;
-      p.orders_total += match.orders_total; p.orders_new += match.orders_new; p.orders_old += match.orders_old;
-      p.closeSum += match.closeSum; p.closeCount += match.closeCount;
-      p.ad_spend += match.ad_spend; p.cost_per_chat_sum += match.cost_per_chat_sum; p.cost_per_chat_count += match.cost_per_chat_count;
-    });
-    var hasReal = !!p && (p.sales_total !== 0 || p.orders_total !== 0);
+    var a = daAgg[normalizeAdminKey_(adminNick_(g.admin))];
+    var hasReal = !!a && (a.salesSum !== 0 || a.ordersSum !== 0);
 
-    var salesTotal = hasReal ? p.sales_total : g.sales_total;
-    var salesNew = hasReal ? p.sales_new : g.sales_new;
-    var salesOld = hasReal ? p.sales_old : g.sales_old;
-    var ordersTotal = hasReal ? p.orders_total : g.orders_total;
-    var ordersNew = hasReal ? p.orders_new : g.orders_new;
-    var ordersOld = hasReal ? p.orders_old : g.orders_old;
+    var salesTotal = hasReal ? a.salesSum : g.sales_total;
+    var salesNew = hasReal ? a.salesNewSum : g.sales_new;
+    var salesOld = hasReal ? a.salesOldSum : g.sales_old;
+    var ordersTotal = hasReal ? a.ordersSum : g.orders_total;
+    var ordersNew = hasReal ? a.ordersNewSum : g.orders_new;
+    var ordersOld = hasReal ? a.ordersOldSum : g.orders_old;
     var closeRateNew = hasReal
-      ? (p.closeCount ? round2_(p.closeSum / p.closeCount) : 0)
+      ? (a.chatsAdsSum ? round2_(a.closeWeighted / a.chatsAdsSum) : 0)
       : (g.closeWeight ? round2_(g.closeWeighted / g.closeWeight) : 0);
-    // ค่าแอด/ROAS: ใช้ยอดค่าแอดจริงรายคนถ้ามี (รวม-หารใหม่จากยอดขายจริง แม่นกว่าเฉลี่ยเรโชรายวัน)
-    // ต้นทุนทัก: เฉลี่ยง่ายๆ จากค่ารายวันที่มีอยู่แล้วในชีต (ไม่มีจำนวนทักรายคนมาคำนวณ ad_spend/chats เอง)
-    var adSpend = hasReal ? p.ad_spend : g.ad_spend;
-    var costPerChat = hasReal
-      ? (p.cost_per_chat_count ? round2_(p.cost_per_chat_sum / p.cost_per_chat_count) : 0)
-      : (g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0);
+    var errorPct = hasReal
+      ? (a.errCount ? round2_(a.errSum / a.errCount) : 0)
+      : (g.errCount ? round2_(g.errSum / g.errCount) : 0);
+    // ค่าแอด/ROAS/ต้นทุนทัก: มาจากแท็บเพจ (staging_รายเพจ) เสมอ ไม่มีในไฟล์ DA
+    var adSpend = g.ad_spend;
+    var costPerChat = g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0;
     var roasNew = adSpend ? round2_(salesNew / adSpend) : 0;
     var roasTotal = adSpend ? round2_(salesTotal / adSpend) : 0;
 
@@ -451,7 +440,7 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
       units: Object.keys(g.units).sort(),
       pageCount: pageNames.length,
       pages: pageNames,
-      per_admin_real_data: hasReal, // true = ยอดจริงรายคนจากแท็บ ค่าคอมแอดมิน, false = ค่าประมาณ full-credit จากแท็บเพจ
+      per_admin_real_data: hasReal, // true = ยอดจริงรายคนจากไฟล์ Data กลางทีม DA, false = ค่าประมาณ full-credit จากแท็บเพจ
       // เปอร์บิลใหม่ = ยอดขายใหม่ ÷ ออเดอร์ใหม่ (สูตรเดียวกับสถิติรายเพจ)
       aov: ordersNew ? round2_(salesNew / ordersNew) : 0,
       // เปอร์บิลรวม = ยอดขายรวม ÷ ออเดอร์รวม (คำนวณเพิ่มจากข้อมูลเดิม ไม่ต้องเพิ่มคอลัมน์ในชีต)
@@ -470,7 +459,7 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
       ads_pct: salesTotal ? round2_(adSpend / salesTotal * 100) : 0,
       roas_new: roasNew,
       roas_total: roasTotal,
-      error_pct: g.errCount ? round2_(g.errSum / g.errCount) : 0
+      error_pct: errorPct
     };
   });
   result.sort(function (a, b) { return b.sales_total - a.sales_total; });
@@ -670,30 +659,26 @@ function getKpiMonthDataCached_(month) {
 // (บางแถว "เบลล์ (ดาราวดี)" มีวรรค บางแถว "เบลล์(ดาราวดี)" ไม่มีวรรค) ทั้งที่เป็นคนเดียวกัน
 function normalizeAdminKey_(s) { return String(s || '').replace(/\s+/g, ''); }
 
-// ยอดขายรวมเดือน/%ปิดการขาย/เปอร์บิล/%ตีกลับ "ของจริงรายคน" จากไฟล์ Data กลางทีม DA (Data_All Unit in 69)
-// คอลัมน์: D=ชื่อจากไฟล์ต้น(join key ตรงกับ Staging.admin เป๊ะ ยกเว้นช่องว่าง — ดู normalizeAdminKey_),
-// E=ยอดขายทั้งหมด, G=ยอดตีกลับ(บาท), I=% ตีกลับ, J=เดือน(1-12, ปีเดียวคือ DA_TEAM_YEAR), K=Order รวม,
-// L=ยอดขายลูกค้าใหม่ทั้งหมด, M=Order ลูกค้าใหม่ทั้งหมด, T=เปอร์บิลลูกค้าใหม่, U=% ปิดการขายลูกค้าใหม่,
-// V=% ERROR, Y=จำนวนแชท Ads — cache แบบเดียวกับ KPI เดิม (5 นาที/เดือน)
+// แถวดิบของไฟล์ Data กลางทีม DA (Data_All Unit in 69) เฉพาะเดือนที่ขอ — cache 5 นาที/เดือน (เหมือน KPI เดิม)
+// คอลัมน์: A=UNIT, D=ชื่อจากไฟล์ต้น (join key ตรงกับ Staging.admin เป๊ะ ยกเว้นช่องว่าง — normalizeAdminKey_),
+// E=ยอดขายทั้งหมด, G=ยอดตีกลับ(บาท), J=เดือน(1-12, ปีเดียวคือ DA_TEAM_YEAR), K=Order รวม,
+// L=ยอดขายลูกค้าใหม่ทั้งหมด, M=Order ลูกค้าใหม่ทั้งหมด, N=ยอดขายลูกค้าเก่าทั้งหมด, O=Order ลูกค้าเก่าทั้งหมด,
+// U=% ปิดการขายลูกค้าใหม่, V=% ERROR, Y=จำนวนแชท Ads
 //
-// คนเดียวกันมีได้หลายแถวในเดือนเดียวกัน (ย้ายไปช่วยหลายยูนิตในเดือนนั้น เช่น เวย์ ทำ U6 บางเดือน/U7
-// บางเดือน/U12 บางเดือน) ต้องรวมทุกแถวของคนนั้นในเดือนนั้นเข้าด้วยกัน ไม่ใช่ใช้แถวสุดท้ายที่เจอเฉยๆ
-// (แบบเดิมทำให้ยอดหายไปเยอะ เพราะแถวก่อนหน้าถูกทับด้วยแถวหลัง) ยอดขาย/ออเดอร์ รวมกันตรงๆ ได้ ส่วน
-// %ตีกลับ/เปอร์บิล/%ปิดการขาย เป็นอัตราส่วน ต้องคำนวณใหม่จากตัวเลขดิบที่รวมแล้ว (ถ่วงน้ำหนักตามจำนวนจริง)
-// ไม่ใช่เอา % ของแต่ละแถวมาเฉลี่ยตรงๆ ซึ่งจะผิดถ้าแต่ละแถวมีฐานไม่เท่ากัน
-function getDaTeamMonthDataCached_(month) {
+// เป็นแถวดิบ (ไม่รวมยอดในนี้) เพราะผู้เรียกต้องรวมได้ 2 แบบ: getDaTeamMonthDataCached_() รวมทุกยูนิต
+// (ใช้กับ KPI การ์ดรายละเอียด/badge ที่ไม่กรองยูนิต) ส่วน getAdminStats() (leaderboard) ต้องกรองยูนิตได้ด้วย
+function getDaTeamMonthRowsCached_(month) {
   var cache = CacheService.getScriptCache();
-  var cacheKey = 'da_team_month_v2_' + month;
+  var cacheKey = 'da_team_rows_v1_' + month;
   var cached = cache.get(cacheKey);
   if (cached) { try { return JSON.parse(cached); } catch (e) { /* cache เพี้ยน อ่านใหม่ */ } }
 
-  var result = {};
+  var rows = [];
   var y = parseInt(month.slice(0, 4), 10), targetMonthNum = parseInt(month.slice(5, 7), 10);
   if (y === DA_TEAM_YEAR) {
     var sh = SpreadsheetApp.openById(DA_TEAM_SHEET_ID).getSheetByName(DA_TEAM_TAB);
     if (!sh) throw new Error('ไม่พบแท็บ "' + DA_TEAM_TAB + '" ในไฟล์ Data กลางทีม DA');
     var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
-    var acc = {};
     if (lastRow > 1) {
       var values = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
       for (var r = 0; r < values.length; r++) {
@@ -701,36 +686,62 @@ function getDaTeamMonthDataCached_(month) {
         var name = String(row[3] || '').trim();
         if (!name) continue; // แถวเปล่า (เดือนที่ยังไม่มีข้อมูลจริง ระบบเว้นที่ไว้ล่วงหน้า)
         if (parseInt(row[9], 10) !== targetMonthNum) continue;
-        var key = normalizeAdminKey_(name);
-        if (!acc[key]) acc[key] = {
-          salesSum: 0, bounceAmtSum: 0, ordersSum: 0, salesNewSum: 0, ordersNewSum: 0,
-          chatsAdsSum: 0, closeWeighted: 0, errSum: 0, errCount: 0
-        };
-        var a = acc[key];
-        var chatsAds = num_(row[24]), closeVal = pct_(row[20]), errVal = pct_(row[21]);
-        a.salesSum += num_(row[4]);
-        a.bounceAmtSum += num_(row[6]);
-        a.ordersSum += num_(row[10]);
-        a.salesNewSum += num_(row[11]);
-        a.ordersNewSum += num_(row[12]);
-        if (!isNaN(closeVal) && chatsAds > 0) { a.closeWeighted += closeVal * chatsAds; a.chatsAdsSum += chatsAds; }
-        if (!isNaN(errVal)) { a.errSum += errVal; a.errCount++; }
+        rows.push({
+          unit: String(row[0] || '').trim(),
+          key: normalizeAdminKey_(name),
+          salesTotal: num_(row[4]), bounceAmt: num_(row[6]), ordersTotal: num_(row[10]),
+          salesNew: num_(row[11]), ordersNew: num_(row[12]), salesOld: num_(row[13]), ordersOld: num_(row[14]),
+          chatsAds: num_(row[24]), closeVal: pct_(row[20]), errVal: pct_(row[21])
+        });
       }
     }
-    Object.keys(acc).forEach(function (key) {
-      var a = acc[key];
-      result[key] = {
-        month: month,
-        sales_actual: round2_(a.salesSum),
-        bounce_rate: a.salesSum ? round2_(a.bounceAmtSum / a.salesSum * 100) : 0,
-        orders_total: a.ordersSum,
-        aov_actual: a.ordersNewSum ? round2_(a.salesNewSum / a.ordersNewSum) : 0,
-        close_rate_total: a.chatsAdsSum ? round2_(a.closeWeighted / a.chatsAdsSum) : 0,
-        error_pct: a.errCount ? round2_(a.errSum / a.errCount) : 0
-      };
-    });
   }
-  try { cache.put(cacheKey, JSON.stringify(result), 300); } catch (e) { }
+  try { cache.put(cacheKey, JSON.stringify(rows), 300); } catch (e) { }
+  return rows;
+}
+
+// รวมแถวดิบจาก getDaTeamMonthRowsCached_() (หลายเดือนได้ — ผู้เรียก concat มาก่อน) ตามคนคนเดียวกันมีได้
+// หลายแถวในเดือนเดียวกัน (ย้ายไปช่วยหลายยูนิตในเดือนนั้น เช่น เวย์ ทำ U6 บางเดือน/U7 บางเดือน/U12 บางเดือน)
+// ต้องรวมทุกแถวของคนนั้นเข้าด้วยกัน ไม่ใช่ใช้แถวสุดท้ายที่เจอเฉยๆ (แบบเดิมทำให้ยอดหายไปเยอะ) ยอดขาย/ออเดอร์
+// รวมกันตรงๆ ได้ ส่วน %ตีกลับ/เปอร์บิล/%ปิดการขาย เป็นอัตราส่วน คำนวณจากตัวเลขดิบที่รวมแล้ว (ถ่วงน้ำหนัก
+// ตามจำนวนจริง) ไม่ใช่เอา % ของแต่ละแถวมาเฉลี่ยตรงๆ ซึ่งจะผิดถ้าแต่ละแถวมีฐานไม่เท่ากัน
+// unitFilter ว่าง/'ทั้งหมด' = ไม่กรอง (รวมทุกยูนิตของคนนั้น)
+function aggregateDaRows_(rows, unitFilter) {
+  var acc = {};
+  rows.forEach(function (row) {
+    if (unitFilter && unitFilter !== 'ทั้งหมด' && normalizeUnitCode_(row.unit) !== unitFilter) return;
+    if (!acc[row.key]) acc[row.key] = {
+      salesSum: 0, bounceAmtSum: 0, ordersSum: 0, salesNewSum: 0, ordersNewSum: 0, salesOldSum: 0, ordersOldSum: 0,
+      chatsAdsSum: 0, closeWeighted: 0, errSum: 0, errCount: 0, units: {}
+    };
+    var a = acc[row.key];
+    a.salesSum += row.salesTotal; a.bounceAmtSum += row.bounceAmt; a.ordersSum += row.ordersTotal;
+    a.salesNewSum += row.salesNew; a.ordersNewSum += row.ordersNew;
+    a.salesOldSum += row.salesOld; a.ordersOldSum += row.ordersOld;
+    if (row.unit) a.units[normalizeUnitCode_(row.unit)] = true;
+    if (!isNaN(row.closeVal) && row.chatsAds > 0) { a.closeWeighted += row.closeVal * row.chatsAds; a.chatsAdsSum += row.chatsAds; }
+    if (!isNaN(row.errVal)) { a.errSum += row.errVal; a.errCount++; }
+  });
+  return acc;
+}
+
+// ยอดขายรวมเดือน/%ปิดการขาย/เปอร์บิล/%ตีกลับ "ของจริงรายคน" รวมทุกยูนิต — ใช้กับ getAdminKpi_()/
+// getKpiStatusBatch_() (การ์ดรายละเอียด/badge บน leaderboard ไม่ต้องกรองยูนิต)
+function getDaTeamMonthDataCached_(month) {
+  var acc = aggregateDaRows_(getDaTeamMonthRowsCached_(month), '');
+  var result = {};
+  Object.keys(acc).forEach(function (key) {
+    var a = acc[key];
+    result[key] = {
+      month: month,
+      sales_actual: round2_(a.salesSum),
+      bounce_rate: a.salesSum ? round2_(a.bounceAmtSum / a.salesSum * 100) : 0,
+      orders_total: a.ordersSum,
+      aov_actual: a.ordersNewSum ? round2_(a.salesNewSum / a.ordersNewSum) : 0,
+      close_rate_total: a.chatsAdsSum ? round2_(a.closeWeighted / a.chatsAdsSum) : 0,
+      error_pct: a.errCount ? round2_(a.errSum / a.errCount) : 0
+    };
+  });
   return result;
 }
 

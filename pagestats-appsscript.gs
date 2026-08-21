@@ -672,11 +672,18 @@ function normalizeAdminKey_(s) { return String(s || '').replace(/\s+/g, ''); }
 
 // ยอดขายรวมเดือน/%ปิดการขาย/เปอร์บิล/%ตีกลับ "ของจริงรายคน" จากไฟล์ Data กลางทีม DA (Data_All Unit in 69)
 // คอลัมน์: D=ชื่อจากไฟล์ต้น(join key ตรงกับ Staging.admin เป๊ะ ยกเว้นช่องว่าง — ดู normalizeAdminKey_),
-// E=ยอดขายทั้งหมด, I=% ตีกลับ, J=เดือน(1-12, ปีเดียวคือ DA_TEAM_YEAR), K=Order รวม,
-// T=เปอร์บิลลูกค้าใหม่, U=% ปิดการขายลูกค้าใหม่, V=% ERROR — cache แบบเดียวกับ KPI เดิม (5 นาที/เดือน)
+// E=ยอดขายทั้งหมด, G=ยอดตีกลับ(บาท), I=% ตีกลับ, J=เดือน(1-12, ปีเดียวคือ DA_TEAM_YEAR), K=Order รวม,
+// L=ยอดขายลูกค้าใหม่ทั้งหมด, M=Order ลูกค้าใหม่ทั้งหมด, T=เปอร์บิลลูกค้าใหม่, U=% ปิดการขายลูกค้าใหม่,
+// V=% ERROR, Y=จำนวนแชท Ads — cache แบบเดียวกับ KPI เดิม (5 นาที/เดือน)
+//
+// คนเดียวกันมีได้หลายแถวในเดือนเดียวกัน (ย้ายไปช่วยหลายยูนิตในเดือนนั้น เช่น เวย์ ทำ U6 บางเดือน/U7
+// บางเดือน/U12 บางเดือน) ต้องรวมทุกแถวของคนนั้นในเดือนนั้นเข้าด้วยกัน ไม่ใช่ใช้แถวสุดท้ายที่เจอเฉยๆ
+// (แบบเดิมทำให้ยอดหายไปเยอะ เพราะแถวก่อนหน้าถูกทับด้วยแถวหลัง) ยอดขาย/ออเดอร์ รวมกันตรงๆ ได้ ส่วน
+// %ตีกลับ/เปอร์บิล/%ปิดการขาย เป็นอัตราส่วน ต้องคำนวณใหม่จากตัวเลขดิบที่รวมแล้ว (ถ่วงน้ำหนักตามจำนวนจริง)
+// ไม่ใช่เอา % ของแต่ละแถวมาเฉลี่ยตรงๆ ซึ่งจะผิดถ้าแต่ละแถวมีฐานไม่เท่ากัน
 function getDaTeamMonthDataCached_(month) {
   var cache = CacheService.getScriptCache();
-  var cacheKey = 'da_team_month_v1_' + month;
+  var cacheKey = 'da_team_month_v2_' + month;
   var cached = cache.get(cacheKey);
   if (cached) { try { return JSON.parse(cached); } catch (e) { /* cache เพี้ยน อ่านใหม่ */ } }
 
@@ -686,6 +693,7 @@ function getDaTeamMonthDataCached_(month) {
     var sh = SpreadsheetApp.openById(DA_TEAM_SHEET_ID).getSheetByName(DA_TEAM_TAB);
     if (!sh) throw new Error('ไม่พบแท็บ "' + DA_TEAM_TAB + '" ในไฟล์ Data กลางทีม DA');
     var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    var acc = {};
     if (lastRow > 1) {
       var values = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
       for (var r = 0; r < values.length; r++) {
@@ -693,17 +701,34 @@ function getDaTeamMonthDataCached_(month) {
         var name = String(row[3] || '').trim();
         if (!name) continue; // แถวเปล่า (เดือนที่ยังไม่มีข้อมูลจริง ระบบเว้นที่ไว้ล่วงหน้า)
         if (parseInt(row[9], 10) !== targetMonthNum) continue;
-        result[normalizeAdminKey_(name)] = {
-          month: month,
-          sales_actual: num_(row[4]),
-          bounce_rate: pct_(row[8]),
-          orders_total: num_(row[10]),
-          aov_actual: num_(row[19]),
-          close_rate_total: pct_(row[20]),
-          error_pct: pct_(row[21])
+        var key = normalizeAdminKey_(name);
+        if (!acc[key]) acc[key] = {
+          salesSum: 0, bounceAmtSum: 0, ordersSum: 0, salesNewSum: 0, ordersNewSum: 0,
+          chatsAdsSum: 0, closeWeighted: 0, errSum: 0, errCount: 0
         };
+        var a = acc[key];
+        var chatsAds = num_(row[24]), closeVal = pct_(row[20]), errVal = pct_(row[21]);
+        a.salesSum += num_(row[4]);
+        a.bounceAmtSum += num_(row[6]);
+        a.ordersSum += num_(row[10]);
+        a.salesNewSum += num_(row[11]);
+        a.ordersNewSum += num_(row[12]);
+        if (!isNaN(closeVal) && chatsAds > 0) { a.closeWeighted += closeVal * chatsAds; a.chatsAdsSum += chatsAds; }
+        if (!isNaN(errVal)) { a.errSum += errVal; a.errCount++; }
       }
     }
+    Object.keys(acc).forEach(function (key) {
+      var a = acc[key];
+      result[key] = {
+        month: month,
+        sales_actual: round2_(a.salesSum),
+        bounce_rate: a.salesSum ? round2_(a.bounceAmtSum / a.salesSum * 100) : 0,
+        orders_total: a.ordersSum,
+        aov_actual: a.ordersNewSum ? round2_(a.salesNewSum / a.ordersNewSum) : 0,
+        close_rate_total: a.chatsAdsSum ? round2_(a.closeWeighted / a.chatsAdsSum) : 0,
+        error_pct: a.errCount ? round2_(a.errSum / a.errCount) : 0
+      };
+    });
   }
   try { cache.put(cacheKey, JSON.stringify(result), 300); } catch (e) { }
   return result;

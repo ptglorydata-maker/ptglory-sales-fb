@@ -670,6 +670,13 @@ function normalizeAdminKey_(s) { return String(s || '').replace(/\s+/g, ''); }
 //
 // เป็นแถวดิบ (ไม่รวมยอดในนี้) เพราะผู้เรียกต้องรวมได้ 2 แบบ: getDaTeamMonthDataCached_() รวมทุกยูนิต
 // (ใช้กับ KPI การ์ดรายละเอียด/badge ที่ไม่กรองยูนิต) ส่วน getAdminStats() (leaderboard) ต้องกรองยูนิตได้ด้วย
+//
+// DA_NAME_ALIASES_: แก้ชื่อพิมพ์ผิดในไฟล์ DA ชั่วคราวระหว่างรอแก้ที่ต้นทาง — ยืนยันแล้วว่า U12
+// "เว (เวสารัช)" (ตัวจริงตามไฟล์รายชื่อ) ไม่มีแถวของตัวเองในไฟล์ DA เลย มีแต่แถวที่เอาชื่อเล่น "เวย์"
+// (ของอีกคนคือ เวย์ (นภาพร)) มาแปะคู่กับชื่อจริง "เวสารัช" ผิด — ลบบรรทัดนี้ออกทันทีที่แก้ที่ไฟล์ DA แล้ว
+var DA_NAME_ALIASES_ = {};
+DA_NAME_ALIASES_[normalizeAdminKey_('เวย์ (เวสารัช)')] = normalizeAdminKey_('เว (เวสารัช)');
+
 function getDaTeamMonthRowsCached_(month) {
   var cache = CacheService.getScriptCache();
   var cacheKey = 'da_team_rows_v1_' + month;
@@ -689,9 +696,11 @@ function getDaTeamMonthRowsCached_(month) {
         var name = String(row[3] || '').trim();
         if (!name) continue; // แถวเปล่า (เดือนที่ยังไม่มีข้อมูลจริง ระบบเว้นที่ไว้ล่วงหน้า)
         if (parseInt(row[9], 10) !== targetMonthNum) continue;
+        var key = normalizeAdminKey_(name);
+        key = DA_NAME_ALIASES_[key] || key;
         rows.push({
           unit: String(row[0] || '').trim(),
-          key: normalizeAdminKey_(name),
+          key: key,
           salesTotal: num_(row[4]), bounceAmt: num_(row[6]), ordersTotal: num_(row[10]),
           salesNew: num_(row[11]), ordersNew: num_(row[12]), salesOld: num_(row[13]), ordersOld: num_(row[14]),
           chatsAds: num_(row[24]), closeVal: pct_(row[20]), errVal: pct_(row[21])

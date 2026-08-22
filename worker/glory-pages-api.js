@@ -30,8 +30,12 @@ const TOKEN = 'glory_pg_0922541941'; // ต้องตรงกับ PAGE_API_
 
 // TTL ของแคชแต่ละชั้น (วินาที) — สั้นพอที่จะไม่ค้างข้อมูลเก่านานหลังรัน ETL ใหม่ แต่ยาวพอให้คนที่ดู
 // ช่วง/ยูนิต/แอดมินเดียวกันซ้ำ (กรณีที่พบบ่อยที่สุด: ทุกคนเปิดมาเจอค่าเริ่มต้น "เดือนนี้" เหมือนกัน) เร็วขึ้นมาก
-const TTL_RAW_ROWS = 90;      // แถวดิบทั้งชีต Staging (ใหญ่ อ่านจาก Sheets API แพงสุด)
-const TTL_RESULT = 120;       // ผลลัพธ์ที่คำนวณเสร็จแล้วต่อชุดพารามิเตอร์
+// TTL_RAW_ROWS/TTL_RESULT เดิมตั้งไว้แค่ 90/120 วินาที (สั้นเพราะกลัวข้อมูลค้างหลังรัน ETL ใหม่) แต่ ETL
+// รันด้วยมือเป็นครั้งคราวเท่านั้น ไม่ใช่ต่อเนื่อง — ค่าเก่านี้ทำให้แทบทุกคนที่เข้าเว็บห่างกันเกิน 1-2 นาที (ปกติ
+// มาก เพราะเป็นเวลาที่คนอ่านข้อมูลบนจอ) เจอ cache miss เต็มๆ ต้องรอ full-sheet fetch ใหม่ทุกครั้ง ทั้งที่
+// ข้อมูลจริงยังไม่เปลี่ยนเลย ยืดให้ยาวขึ้นมาก (เก่ากว่าจริงได้สูงสุด 5-10 นาทีหลังรัน ETL ถือว่าคุ้มกับความเร็ว)
+const TTL_RAW_ROWS = 600;     // แถวดิบทั้งชีต Staging (ใหญ่ อ่านจาก Sheets API แพงสุด)
+const TTL_RESULT = 300;       // ผลลัพธ์ที่คำนวณเสร็จแล้วต่อชุดพารามิเตอร์
 const TTL_UNITS = 600;        // dropdown หน่วย แทบไม่เปลี่ยน
 const TTL_MONTH_DATA = 300;   // ข้อมูลรายเดือนจากไฟล์ DA/KPI (เหมือน Apps Script CacheService เดิม)
 const TTL_META = 3600;        // metadata ของสเปรดชีต (ชื่อแท็บจาก gid) แทบไม่เปลี่ยนเลย
@@ -452,10 +456,20 @@ async function loadDaTeamAllRows_(env) {
   return rows;
 }
 async function getDaTeamMonthRows_(env, month) {
-  var y = parseInt(month.slice(0, 4), 10), targetMonthNum = parseInt(month.slice(5, 7), 10);
-  if (y !== DA_TEAM_YEAR) return [];
   var allRows = await loadDaTeamAllRows_(env);
-  return allRows.filter(function (r) { return r.month === targetMonthNum; });
+  return filterDaRowsByMonths_(allRows, [month]);
+}
+// กรอง rows ตามรายชื่อเดือน 'YYYY-MM' หลายเดือนพร้อมกันแบบ sync ล้วนๆ (ไม่มี await) — ใช้แทนการ loop
+// เรียก getDaTeamMonthRows_() ทีละเดือน (แต่ละครั้งมี await kvGetJson_ แยก แม้จะ cache-hit ก็มี network
+// round-trip ไป KV) ถ้าเลือกช่วงกว้าง (เช่น "ทั้งปี" 8 เดือน) จะเสียเวลารอ KV round-trip 8 รอบโดยไม่จำเป็น
+// ทั้งที่ loadDaTeamAllRows_() คืนแถวทุกเดือนมาให้ครั้งเดียวอยู่แล้ว แค่กรองในหน่วยความจำก็พอ
+function filterDaRowsByMonths_(allRows, months) {
+  var wanted = {};
+  months.forEach(function (mm) {
+    var y = parseInt(mm.slice(0, 4), 10), mnum = parseInt(mm.slice(5, 7), 10);
+    if (y === DA_TEAM_YEAR) wanted[mnum] = true;
+  });
+  return allRows.filter(function (r) { return wanted[r.month]; });
 }
 
 // รวมแถวดิบตามคนคนเดียวกัน (อาจมีหลายแถวในเดือนเดียวกันถ้าย้ายไปช่วยหลายยูนิต) — ยอดขาย/ออเดอร์รวมตรงๆ
@@ -484,8 +498,9 @@ function aggregateDaRows_(rows, unitFilter) {
   return acc;
 }
 
-async function getDaTeamMonthData_(env, month) {
-  var acc = aggregateDaRows_(await getDaTeamMonthRows_(env, month), '');
+// คำนวณล้วนๆ (ไม่มี await) จากแถวดิบที่กรองเดือนแล้ว — แยกออกมาให้ getAdminKpi_() เรียกวนต่อเดือนแบบ sync ได้
+function computeDaTeamMonthResult_(monthRows, month) {
+  var acc = aggregateDaRows_(monthRows, '');
   var result = {};
   Object.keys(acc).forEach(function (key) {
     var a = acc[key];
@@ -500,6 +515,10 @@ async function getDaTeamMonthData_(env, month) {
     };
   });
   return result;
+}
+async function getDaTeamMonthData_(env, month) {
+  var allRows = await loadDaTeamAllRows_(env);
+  return computeDaTeamMonthResult_(filterDaRowsByMonths_(allRows, [month]), month);
 }
 
 // ดีบั๊ก: คืนทุกแถวดิบของคนคนหนึ่งในเดือนหนึ่ง พร้อมยอดรวม — ใช้เช็คว่า sales_total ที่ leaderboard
@@ -597,6 +616,36 @@ async function getKpiSheetLayout_(env) {
   return out;
 }
 
+// คำนวณล้วนๆ (ไม่มี await) — แยกออกมาจาก getKpiMonthData_ เพื่อให้ getAdminKpi_() โหลด layout/values/roster
+// แค่ครั้งเดียวแล้วเรียกฟังก์ชันนี้วนต่อเดือนแบบ sync ได้ ไม่ต้องรอ KV round-trip ต่อเดือน
+function computeKpiMonthResult_(layout, values, empIdToNick, month) {
+  var block = layout.blocks[month];
+  var result = {};
+  if (!block) return result;
+  for (var r = 3; r < values.length; r++) {
+    var row = values[r];
+    var nick = empIdToNick[String(row[layout.empIdCol] || '').trim()];
+    if (!nick) continue;
+    var out = {
+      month: month, label: block.label,
+      sales_actual: block.colSales >= 0 ? num_(row[block.colSales]) : null,
+      close_rate_total: block.colClose >= 0 ? pct_(row[block.colClose]) : null,
+      aov_actual: block.colAov >= 0 ? num_(row[block.colAov]) : null,
+      bounce_rate: block.colBounce >= 0 ? pct_(row[block.colBounce]) : null,
+      has_targets: !!block.hasTargets
+    };
+    if (block.hasTargets) {
+      out.sales_target = num_(row[block.colSalesTarget]);
+      out.close_target = pct_(row[block.colCloseTarget]);
+      out.aov_target = num_(row[block.colAovTarget]);
+      out.bounce_target = pct_(row[block.colBounceTarget]);
+      out.score = num_(row[block.colScore]);
+      out.status = String(row[block.colStatus] || '').trim();
+    }
+    result[nick] = out;
+  }
+  return result;
+}
 async function getKpiMonthData_(env, month) {
   var cacheKey = 'kpi_month:v1:' + month;
   var cached = await kvGetJson_(env, cacheKey);
@@ -607,49 +656,40 @@ async function getKpiMonthData_(env, month) {
   Object.keys(rosterMap).forEach(function (nick) { empIdToNick[rosterMap[nick]] = nick; });
 
   var layout = await getKpiSheetLayout_(env);
-  var block = layout.blocks[month];
-  var result = {};
-
-  if (block) {
-    var values = (await loadKpiRawValues_(env)).values;
-    for (var r = 3; r < values.length; r++) {
-      var row = values[r];
-      var nick = empIdToNick[String(row[layout.empIdCol] || '').trim()];
-      if (!nick) continue;
-      var out = {
-        month: month, label: block.label,
-        sales_actual: block.colSales >= 0 ? num_(row[block.colSales]) : null,
-        close_rate_total: block.colClose >= 0 ? pct_(row[block.colClose]) : null,
-        aov_actual: block.colAov >= 0 ? num_(row[block.colAov]) : null,
-        bounce_rate: block.colBounce >= 0 ? pct_(row[block.colBounce]) : null,
-        has_targets: !!block.hasTargets
-      };
-      if (block.hasTargets) {
-        out.sales_target = num_(row[block.colSalesTarget]);
-        out.close_target = pct_(row[block.colCloseTarget]);
-        out.aov_target = num_(row[block.colAovTarget]);
-        out.bounce_target = pct_(row[block.colBounceTarget]);
-        out.score = num_(row[block.colScore]);
-        out.status = String(row[block.colStatus] || '').trim();
-      }
-      result[nick] = out;
-    }
-  }
+  var values = (await loadKpiRawValues_(env)).values;
+  var result = computeKpiMonthResult_(layout, values, empIdToNick, month);
   await kvPutJson_(env, cacheKey, result, TTL_MONTH_DATA);
   return result;
+}
+// โหลด roster/layout/ค่าดิบไฟล์ KPI ครั้งเดียว ใช้ตอนต้องคำนวณหลายเดือนพร้อมกัน (getAdminKpi_) กัน
+// KV round-trip ซ้ำต่อเดือนโดยไม่จำเป็น (ทั้ง 3 อย่างนี้ไม่ขึ้นกับเดือน ใช้ร่วมกันได้ทุกเดือนอยู่แล้ว)
+async function loadKpiFullContext_(env) {
+  var rosterMap = await getRosterMap_(env);
+  var empIdToNick = {};
+  Object.keys(rosterMap).forEach(function (nick) { empIdToNick[rosterMap[nick]] = nick; });
+  var layout = await getKpiSheetLayout_(env);
+  var values = (await loadKpiRawValues_(env)).values;
+  return { layout: layout, values: values, empIdToNick: empIdToNick };
 }
 
 // % ปิดการขาย (รวม), เปอร์บิล, % ตีกลับ, ยอดขายรวมเดือน ของแอดมินคนเดียว ทุกเดือนที่คาบเกี่ยวกับ [start,end]
 async function getAdminKpi_(env, adminNickname, start, end) {
   var months = monthsBetween_(start, end);
   var key = normalizeAdminKey_(adminNickname);
+
+  // โหลดทรัพยากรที่ใช้ร่วมกันทุกเดือนแค่ครั้งเดียว (แถวดิบไฟล์ DA ทั้งปี + roster/layout/ค่าดิบไฟล์ KPI)
+  // แล้ววนคำนวณต่อเดือนแบบ sync ล้วนๆ ข้างล่าง — เดิมวนเรียกฟังก์ชัน async ทีละเดือน แต่ละครั้งมี KV
+  // round-trip แยก แม้จะ cache-hit ก็ตาม ถ้าเลือกช่วงกว้าง (เช่น "ทั้งปี" 8 เดือน) จะเสียเวลารอ
+  // round-trip ซ้ำหลายสิบครั้งโดยไม่จำเป็น ทั้งที่ข้อมูลตั้งต้นเป็นชุดเดียวกันทุกเดือนอยู่แล้ว
+  var allDaRows = await loadDaTeamAllRows_(env);
+  var kpiCtx = null;
+  try { kpiCtx = await loadKpiFullContext_(env); } catch (e) { /* ไฟล์ KPI เดิมพังก็ไม่เป็นไร ยังมีค่าจาก DA */ }
+
   var monthsOut = [];
-  for (var i = 0; i < months.length; i++) {
-    var mm = months[i];
-    var da = (await getDaTeamMonthData_(env, mm))[key];
-    var kpi = null;
-    try { kpi = (await getKpiMonthData_(env, mm))[adminNickname]; } catch (e) { /* ไฟล์ KPI เดิมพังก็ไม่เป็นไร ยังมีค่าจาก DA */ }
-    if (!da && !kpi) continue;
+  months.forEach(function (mm) {
+    var da = computeDaTeamMonthResult_(filterDaRowsByMonths_(allDaRows, [mm]), mm)[key];
+    var kpi = kpiCtx ? computeKpiMonthResult_(kpiCtx.layout, kpiCtx.values, kpiCtx.empIdToNick, mm)[adminNickname] : null;
+    if (!da && !kpi) return;
     monthsOut.push({
       month: mm, label: kpi ? kpi.label : mm,
       sales_actual: da ? da.sales_actual : (kpi ? kpi.sales_actual : null),
@@ -661,16 +701,14 @@ async function getAdminKpi_(env, adminNickname, start, end) {
       aov_target: kpi ? kpi.aov_target : null, bounce_target: kpi ? kpi.bounce_target : null,
       score: kpi ? kpi.score : null, status: kpi ? kpi.status : ''
     });
-  }
+  });
   if (!monthsOut.length) return { found: false, reason: 'ไม่พบข้อมูลของ "' + adminNickname + '" ในช่วงเดือนที่เลือก (เช็คว่ามีในไฟล์ Data กลางทีม DA ไหม)' };
 
   // aggregate: ยอด/%ปิด/เปอร์บิล/%ตีกลับ "จริง" รวมทั้งช่วงที่เลือก (ไม่ใช่แค่เดือนล่าสุด) — ใช้ตอนช่วงที่เลือก
   // คาบเกี่ยวหลายเดือน (เช่น "ทั้งปี") ตามที่ผู้ใช้ขอ คำนวณจากแถวดิบรวมกันแล้วถ่วงน้ำหนักถูกต้อง (ไม่ใช่เฉลี่ย
   // ตัวเลข % ของแต่ละเดือนตรงๆ ซึ่งผิดถ้าแต่ละเดือนมีฐานไม่เท่ากัน) — เป้า/คะแนน/สถานะยังคงเป็นรายเดือน
   // (เดือนล่าสุด) เสมอ เพราะเป็นผลประเมินรายเดือน ไม่สมเหตุสมผลจะรวมข้ามเดือน
-  var daRowsAll = [];
-  for (var j = 0; j < months.length; j++) daRowsAll = daRowsAll.concat(await getDaTeamMonthRows_(env, months[j]));
-  var daAggAll = aggregateDaRows_(daRowsAll, '')[key];
+  var daAggAll = aggregateDaRows_(filterDaRowsByMonths_(allDaRows, months), '')[key];
   var aggregate = null;
   if (daAggAll && (daAggAll.salesSum || daAggAll.ordersSum)) {
     aggregate = {
@@ -693,9 +731,8 @@ async function getKpiStatusBatch_(env, adminNicknames, start, end) {
   // %ตีกลับ: รวม/ถ่วงน้ำหนักตามยอดขายทุกเดือนในช่วงที่เลือก (ไม่ใช่แค่เดือนล่าสุดเดือนเดียวเหมือนเดิม)
   // เพราะเดือนล่าสุดเดือนเดียวอาจยังกรอกข้อมูลตีกลับไม่ครบ (เช่นเดือนปัจจุบันที่ยังไม่จบเดือน) ทำให้ดูเหมือน
   // 0% หมดทุกคนทั้งที่จริงมีข้อมูลตีกลับสะสมทั้งปีอยู่ — ไม่กรองยูนิต (เหมือนเดิม เพราะ badge นี้ไม่กรองยูนิต)
-  var daRowsAll = [];
-  for (var i = 0; i < months.length; i++) daRowsAll = daRowsAll.concat(await getDaTeamMonthRows_(env, months[i]));
-  var daAggAll = aggregateDaRows_(daRowsAll, '');
+  var allDaRows = await loadDaTeamAllRows_(env);
+  var daAggAll = aggregateDaRows_(filterDaRowsByMonths_(allDaRows, months), '');
 
   // score/status "ผ่าน/ไม่ผ่าน KPI" ยังคงใช้แค่เดือนล่าสุดเดือนเดียว (เป็นผลประเมินรายเดือน เฉลี่ยข้ามปีไม่สมเหตุสมผล)
   var kpiMonthData = {};
@@ -755,10 +792,9 @@ async function getAdminStats_(env, start, end, unitFilter, adminFilter) {
   });
 
   // ยอดขาย/ออเดอร์/%ปิดใหม่/เปอร์บิล/%ERROR "ของจริงรายคน" มาจากไฟล์ Data กลางทีม DA เสมอเมื่อมีข้อมูล
-  var daRowsAll = [];
   var months = monthsBetween_(start, end);
-  for (var i = 0; i < months.length; i++) daRowsAll = daRowsAll.concat(await getDaTeamMonthRows_(env, months[i]));
-  var daAgg = aggregateDaRows_(daRowsAll, unitFilter);
+  var allDaRows = await loadDaTeamAllRows_(env);
+  var daAgg = aggregateDaRows_(filterDaRowsByMonths_(allDaRows, months), unitFilter);
   // personalAgg สแกน staging_รายคน (~50,000 แถว) ใช้แค่ตอนดูรายละเอียดคนเดียว (มี adminFilter) เพื่อวาด
   // กราฟแนวโน้มรายวันจริง — ตอนดู leaderboard "ทั้งหมด" ไม่ได้ใช้ค่านี้เลย ข้ามไปกันโหลดหนักเปล่าๆ
   var personalAgg = adminFilter ? await getAdminPersonalAgg_(env, start, end, unitFilter) : { byAdmin: {}, byAdminDaily: {} };

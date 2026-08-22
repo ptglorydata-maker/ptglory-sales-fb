@@ -799,23 +799,25 @@ export default {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
     }
 
-    var cacheKey = null, cacheTtl = 0;
-    if (p.mode === 'units') { cacheKey = 'resp:v1:units'; cacheTtl = TTL_UNITS; }
-    else if (p.mode === 'admin_units') { cacheKey = 'resp:v1:admin_units'; cacheTtl = TTL_UNITS; }
-    else if (p.mode === 'admin_stats') { cacheKey = 'resp:v1:admin_stats:' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || '') + '|' + (p.admin || ''); cacheTtl = TTL_RESULT; }
-    else if (p.mode !== 'da_debug' && p.mode !== 'env_debug') { cacheKey = 'resp:v1:page_stats:' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || ''); cacheTtl = TTL_RESULT; }
-
-    if (cacheKey) {
-      var cached = await env.GLORY_KV.get(cacheKey);
-      if (cached) {
-        var resp = new Response(cached, { headers });
-        resp.headers.set('X-Cache', 'HIT');
-        return resp;
-      }
-    }
-
-    var out;
+    // ครอบทั้งก้อนด้วย try เดียว (รวมการอ่าน KV cache ด้วย) กัน exception ที่ไม่คาดคิดหลุดออกไปเป็นหน้า
+    // "Error 1101" เปล่าๆ ของ Cloudflare (ไม่มี CORS header, ไม่ใช่ JSON) — อยากให้ error ทุกกรณีย้อนกลับมา
+    // เป็น JSON {error:...} เหมือน pagestats-appsscript.gs เดิมเสมอ ไม่ว่าจะพังตรงไหนก็ตาม
+    var cacheKey = null, cacheTtl = 0, out;
     try {
+      if (p.mode === 'units') { cacheKey = 'resp:v1:units'; cacheTtl = TTL_UNITS; }
+      else if (p.mode === 'admin_units') { cacheKey = 'resp:v1:admin_units'; cacheTtl = TTL_UNITS; }
+      else if (p.mode === 'admin_stats') { cacheKey = 'resp:v1:admin_stats:' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || '') + '|' + (p.admin || ''); cacheTtl = TTL_RESULT; }
+      else if (p.mode !== 'da_debug' && p.mode !== 'env_debug') { cacheKey = 'resp:v1:page_stats:' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || ''); cacheTtl = TTL_RESULT; }
+
+      if (cacheKey) {
+        var cached = await env.GLORY_KV.get(cacheKey);
+        if (cached) {
+          var resp = new Response(cached, { headers });
+          resp.headers.set('X-Cache', 'HIT');
+          return resp;
+        }
+      }
+
       if (p.mode === 'units') {
         out = await getPageUnits_(env);
       } else if (p.mode === 'admin_units') {
@@ -846,7 +848,7 @@ export default {
         out = await getPageStats_(env, p.start, p.end, p.unit || '');
       }
     } catch (err) {
-      out = { error: err.message };
+      out = { error: (err && err.message) || String(err) };
     }
 
     var json = JSON.stringify(out);

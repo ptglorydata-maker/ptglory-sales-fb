@@ -55,11 +55,28 @@ var DA_TEAM_TAB = 'Data_All Unit in 69'; // ยอดขายรวมเดื
 var DA_TEAM_YEAR = 2026; // ไฟล์นี้ไม่มีคอลัมน์ปี มีแต่ "เดือน" (1-12) — ข้อมูลทั้งไฟล์เป็นปี 2569 เท่านั้น
 // ==========================================
 
+// สถิติรายเพจ/รายคน ช้ากว่าภาพรวมรายวัน/รายเดือน (ที่อ่านจาก Cloudflare Worker) มาก เพราะทุกคำขอต้อง
+// สแกนทั้งชีต Staging (staging_รายเพจ ~30,000+ แถว, staging_รายคน ~50,000+ แถว) ใหม่ทุกครั้ง ไม่มีฐาน
+// ข้อมูลจริงให้ query เฉพาะช่วงได้เหมือน Worker — cache "ผลลัพธ์สุดท้าย" ที่คำนวณเสร็จแล้ว (ไม่ใช่แถวดิบ
+// ซึ่งใหญ่เกิน 100KB/key ของ CacheService) ต่อชุดพารามิเตอร์ไว้สั้นๆ ก็พอลดเวลาลงมากสำหรับคนที่ดูช่วง/
+// ยูนิต/แอดมินเดียวกันซ้ำ (เช่น ทุกคนเปิดมาเจอค่าเริ่มต้นเดือนนี้เหมือนกัน) — ไม่ cache mode=da_debug
+// (ต้องการข้อมูลสดเสมอตอนดีบั๊ก) ttl สั้นพอที่จะไม่ค้างข้อมูลเก่านานเกินไปหลังรัน ETL ใหม่
 function doGet(e) {
-  var out;
+  var out, cacheKey = null, cacheTtl = 0;
   try {
     var p = (e && e.parameter) || {};
     if (p.token !== TOKEN) throw new Error('Unauthorized');
+
+    if (p.mode === 'units') { cacheKey = 'resp_v1_units'; cacheTtl = 600; }
+    else if (p.mode === 'admin_units') { cacheKey = 'resp_v1_admin_units'; cacheTtl = 600; }
+    else if (p.mode === 'admin_stats') { cacheKey = 'resp_v1_admin_stats_' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || '') + '|' + (p.admin || ''); cacheTtl = 120; }
+    else if (p.mode !== 'da_debug') { cacheKey = 'resp_v1_page_stats_' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || ''); cacheTtl = 120; }
+
+    if (cacheKey) {
+      var cached = CacheService.getScriptCache().get(cacheKey);
+      if (cached) return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+    }
+
     if (p.mode === 'units') {
       out = getPageUnits();
     } else if (p.mode === 'admin_units') {
@@ -81,8 +98,12 @@ function doGet(e) {
   } catch (err) {
     out = { error: err.message };
   }
-  return ContentService.createTextOutput(JSON.stringify(out))
-    .setMimeType(ContentService.MimeType.JSON);
+  var json = JSON.stringify(out);
+  // ไม่ cache ผลลัพธ์ error (เช่น ชั่วคราวชีตเข้าไม่ได้) กัน error นั้นค้างโชว์ซ้ำไปอีก cacheTtl วินาที
+  if (cacheKey && !(out && out.error)) {
+    try { CacheService.getScriptCache().put(cacheKey, json, cacheTtl); } catch (cacheErr) { /* เกิน 100KB/key ก็แค่ไม่ cache รอบนี้ ไม่ล่มทั้งหน้า */ }
+  }
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
 // รายชื่อยูนิตที่มีข้อมูลรายเพจจริงใน Staging Sheet (ไม่ใช่รายชื่อยูนิตทั้งหมดจากระบบยอดขายหลัก
@@ -414,7 +435,10 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
   var daRowsAll = [];
   monthsBetween_(start, end).forEach(function (mm) { daRowsAll = daRowsAll.concat(getDaTeamMonthRowsCached_(mm)); });
   var daAgg = aggregateDaRows_(daRowsAll, unitFilter);
-  var personalAgg = getAdminPersonalAgg_(start, end, unitFilter); // ยังใช้แค่วาดกราฟแนวโน้มรายวัน (ดูด้านล่าง)
+  // personalAgg สแกนทั้งชีต staging_รายคน (~50,000 แถว) ใช้แค่ตอนดูรายละเอียดคนเดียว (มี adminFilter)
+  // เพื่อวาดกราฟแนวโน้มรายวันจริงเท่านั้น (ดูด้านล่าง) — ตอนดู leaderboard "ทั้งหมด" (ไม่มี adminFilter)
+  // ไม่ได้ใช้ค่านี้เลยสักบรรทัด เดิมสแกนทิ้งเปล่าๆ ทุกครั้งที่เปิด/รีเฟรชหน้า ทำให้ช้าโดยไม่จำเป็น
+  var personalAgg = adminFilter ? getAdminPersonalAgg_(start, end, unitFilter) : { byAdmin: {}, byAdminDaily: {} };
 
   var result = Object.keys(byAdmin).map(function (k) {
     var g = byAdmin[k];

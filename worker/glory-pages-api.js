@@ -54,7 +54,14 @@ function strToB64Url(str) {
   return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 async function importPrivateKey(pem) {
-  var body = pem.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').replace(/\s+/g, '');
+  // ตัด header/footer ด้วย regex (ไม่ใช่ exact string match) แล้วกรองอักขระที่ไม่ใช่ base64 ทิ้งทั้งหมด
+  // (เว้นวรรค/บรรทัดใหม่/เครื่องหมาย \n ที่หลุดมาตอน copy-paste secret ผ่าน UI) กัน atob() พังเพราะ
+  // ตัวคั่นหลุดรอดมาไม่กี่ตัวอักษร (เจอจริง: "-----BEGIN PRIVATE KEY-----" เหลือ "-" ปนซึ่งไม่ใช่ base64)
+  var body = String(pem || '')
+    .replace(/-----BEGIN [^-]+-----/g, '')
+    .replace(/-----END [^-]+-----/g, '')
+    .replace(/[^A-Za-z0-9+/=]/g, '');
+  if (!body) throw new Error('GOOGLE_PRIVATE_KEY ว่างเปล่าหลังตัด header/footer — เช็คว่า paste ค่าครบหรือไม่');
   var der = b64ToBuf(body);
   return crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
 }

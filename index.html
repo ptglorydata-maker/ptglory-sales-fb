@@ -1036,12 +1036,21 @@ function renderKpiTargets(kpi,r){
   }
   var errorPct=r.error_pct;
   var m=kpi.months[kpi.months.length-1];
+  // ยอด/%ปิด/เปอร์บิล/%ตีกลับ "จริง" ใช้ค่ารวมทั้งช่วงที่เลือก (kpi.aggregate จาก backend ถ่วงน้ำหนักถูกต้อง
+  // จากแถวดิบ ไม่ใช่แค่เดือนล่าสุด) เมื่อมี — ถ้าไม่มี (หา DA data ไม่เจอเลยทั้งช่วง) fallback ไปใช้ค่าของ
+  // เดือนล่าสุดแทน เป้า/คะแนน/สถานะยังคงเป็นของเดือนล่าสุดเสมอ (เป็นผลประเมินรายเดือน รวมข้ามเดือนไม่ได้)
+  var agg=kpi.aggregate;
+  var salesActual=agg?agg.sales_actual:m.sales_actual;
+  var closeActual=agg?agg.close_rate_total:m.close_rate_total;
+  var aovActual=agg?agg.aov_actual:m.aov_actual;
+  var bounceActual=agg?agg.bounce_rate:m.bounce_rate;
+  var rangeNote=(kpi.months.length>1)?' (รวม '+kpi.months.length+' เดือนที่เลือก)':'';
   // เป้าเฉพาะคนจากไฟล์ KPI ถ้ามี (m.has_targets) — ไม่มีก็ fallback ไปใช้เป้ามาตรฐานบริษัทแทน เพื่อให้เทียบได้เสมอ
   var salesTarget=m.has_targets?m.sales_target:T.sales;
   var closeTarget=m.has_targets?m.close_target:T.close;
   var aovTarget=m.has_targets?m.aov_target:T.aov;
   var bounceTarget=m.has_targets?m.bounce_target:T.bounce;
-  el('paKpiPh').textContent=(m.has_targets?'เทียบกับเป้าที่ตั้งไว้ในไฟล์ KPI ฝ่ายขาย':'ไม่พบเป้าเฉพาะของเดือนนี้ในไฟล์ KPI — เทียบกับเป้ามาตรฐานบริษัทแทน')+' · '+m.label;
+  el('paKpiPh').textContent=(m.has_targets?'เทียบกับเป้าที่ตั้งไว้ในไฟล์ KPI ฝ่ายขาย':'ไม่พบเป้าเฉพาะของเดือนนี้ในไฟล์ KPI — เทียบกับเป้ามาตรฐานบริษัทแทน')+' · '+m.label+rangeNote;
   if(!m.has_targets){
     el('paKpiScore').textContent='—';
     setKpiStatusTag('a','ไม่พบคอลัมน์เป้าของเดือนนี้');
@@ -1051,10 +1060,10 @@ function renderKpiTargets(kpi,r){
     setKpiStatusTag(pass?'pass':'fail',m.status||'—');
   }
   el('paKpiMetrics').innerHTML=
-    kpiMetricBar('ยอดขาย','',m.sales_actual,baht(m.sales_actual),salesTarget,baht(salesTarget))
-    +kpiMetricBar('% ปิดการขาย','',m.close_rate_total,num1(m.close_rate_total,'%'),closeTarget,num1(closeTarget,'%'))
-    +kpiMetricBar('เปอร์บิล','',m.aov_actual,baht(m.aov_actual),aovTarget,baht(aovTarget))
-    +kpiMetricBar('% ตีกลับ','(ยิ่งต่ำยิ่งดี)',m.bounce_rate,num1(m.bounce_rate,'%'),bounceTarget,num1(bounceTarget,'%'),true)
+    kpiMetricBar('ยอดขาย','',salesActual,baht(salesActual),salesTarget,baht(salesTarget))
+    +kpiMetricBar('% ปิดการขาย','',closeActual,num1(closeActual,'%'),closeTarget,num1(closeTarget,'%'))
+    +kpiMetricBar('เปอร์บิล','',aovActual,baht(aovActual),aovTarget,baht(aovTarget))
+    +kpiMetricBar('% ตีกลับ','(ยิ่งต่ำยิ่งดี)',bounceActual,num1(bounceActual,'%'),bounceTarget,num1(bounceTarget,'%'),true)
     +kpiMetricBar('% Error','(ยิ่งต่ำยิ่งดี)',errorPct,num1(errorPct,'%'),T.error,num1(T.error,'%'),false,true);
 }
 function renderAdminDetail(rows,daily,kpi){

@@ -663,7 +663,24 @@ async function getAdminKpi_(env, adminNickname, start, end) {
     });
   }
   if (!monthsOut.length) return { found: false, reason: 'ไม่พบข้อมูลของ "' + adminNickname + '" ในช่วงเดือนที่เลือก (เช็คว่ามีในไฟล์ Data กลางทีม DA ไหม)' };
-  return { found: true, months: monthsOut };
+
+  // aggregate: ยอด/%ปิด/เปอร์บิล/%ตีกลับ "จริง" รวมทั้งช่วงที่เลือก (ไม่ใช่แค่เดือนล่าสุด) — ใช้ตอนช่วงที่เลือก
+  // คาบเกี่ยวหลายเดือน (เช่น "ทั้งปี") ตามที่ผู้ใช้ขอ คำนวณจากแถวดิบรวมกันแล้วถ่วงน้ำหนักถูกต้อง (ไม่ใช่เฉลี่ย
+  // ตัวเลข % ของแต่ละเดือนตรงๆ ซึ่งผิดถ้าแต่ละเดือนมีฐานไม่เท่ากัน) — เป้า/คะแนน/สถานะยังคงเป็นรายเดือน
+  // (เดือนล่าสุด) เสมอ เพราะเป็นผลประเมินรายเดือน ไม่สมเหตุสมผลจะรวมข้ามเดือน
+  var daRowsAll = [];
+  for (var j = 0; j < months.length; j++) daRowsAll = daRowsAll.concat(await getDaTeamMonthRows_(env, months[j]));
+  var daAggAll = aggregateDaRows_(daRowsAll, '')[key];
+  var aggregate = null;
+  if (daAggAll && (daAggAll.salesSum || daAggAll.ordersSum)) {
+    aggregate = {
+      sales_actual: round2_(daAggAll.salesSum),
+      close_rate_total: daAggAll.chatsAdsSum ? round2_(daAggAll.closeWeighted / daAggAll.chatsAdsSum) : 0,
+      aov_actual: daAggAll.ordersNewSum ? round2_(daAggAll.salesNewSum / daAggAll.ordersNewSum) : 0,
+      bounce_rate: daAggAll.salesSum ? round2_(daAggAll.bounceAmtSum / daAggAll.salesSum * 100) : 0
+    };
+  }
+  return { found: true, months: monthsOut, aggregate: aggregate };
 }
 
 // สถานะ KPI + คะแนนรวม + %ตีกลับ ของ "หลายคนพร้อมกัน" สำหรับหน้าจัดอันดับ — ใช้เดือนล่าสุดที่คาบเกี่ยวเดือนเดียว

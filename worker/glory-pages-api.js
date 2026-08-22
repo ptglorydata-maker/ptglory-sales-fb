@@ -800,7 +800,7 @@ export default {
     if (p.mode === 'units') { cacheKey = 'resp:v1:units'; cacheTtl = TTL_UNITS; }
     else if (p.mode === 'admin_units') { cacheKey = 'resp:v1:admin_units'; cacheTtl = TTL_UNITS; }
     else if (p.mode === 'admin_stats') { cacheKey = 'resp:v1:admin_stats:' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || '') + '|' + (p.admin || ''); cacheTtl = TTL_RESULT; }
-    else if (p.mode !== 'da_debug') { cacheKey = 'resp:v1:page_stats:' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || ''); cacheTtl = TTL_RESULT; }
+    else if (p.mode !== 'da_debug' && p.mode !== 'env_debug') { cacheKey = 'resp:v1:page_stats:' + (p.start || '') + '|' + (p.end || '') + '|' + (p.unit || ''); cacheTtl = TTL_RESULT; }
 
     if (cacheKey) {
       var cached = await env.GLORY_KV.get(cacheKey);
@@ -823,6 +823,21 @@ export default {
       } else if (p.mode === 'da_debug') {
         if (!p.admin || !p.month) throw new Error('missing admin/month (เช่น admin=ใบพลู (ปิยกรณ์)&month=2026-08)');
         out = await getDaDebugRows_(env, p.admin, p.month);
+      } else if (p.mode === 'env_debug') {
+        // ดีบั๊กชั่วคราว: เช็คว่า secret GOOGLE_PRIVATE_KEY ที่เก็บไว้จริงยาว/ตัดหัวท้ายแล้วถูกต้องไหม
+        // ไม่โชว์เนื้อหาจริงเลยแม้แต่ตัวเดียว (เอาแค่ 6 ตัวแรก/ท้ายของ "ค่าดิบ" พอเดาไม่ได้ว่า key จริงคืออะไร)
+        var raw = env.GOOGLE_PRIVATE_KEY || '';
+        var cleaned = raw.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '').replace(/[^A-Za-z0-9+/=]/g, '');
+        out = {
+          has_secret: !!raw,
+          raw_length: raw.length,
+          raw_line_count: raw.split('\n').length,
+          raw_has_literal_backslash_n: raw.indexOf('\\n') >= 0,
+          cleaned_length: cleaned.length,
+          cleaned_length_mod4: cleaned.length % 4,
+          raw_head6: raw.slice(0, 6),
+          raw_tail6: raw.slice(-6)
+        };
       } else {
         if (!p.start || !p.end) throw new Error('missing start/end');
         out = await getPageStats_(env, p.start, p.end, p.unit || '');

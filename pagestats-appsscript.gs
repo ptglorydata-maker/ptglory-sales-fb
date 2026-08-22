@@ -736,7 +736,14 @@ function aggregateDaRows_(rows, unitFilter) {
     a.salesNewSum += row.salesNew; a.ordersNewSum += row.ordersNew;
     a.salesOldSum += row.salesOld; a.ordersOldSum += row.ordersOld;
     if (row.unit) a.units[normalizeUnitCode_(row.unit)] = true;
-    if (!isNaN(row.closeVal) && row.chatsAds > 0) { a.closeWeighted += row.closeVal * row.chatsAds; a.chatsAdsSum += row.chatsAds; }
+    // ถ่วงน้ำหนักด้วยจำนวนแชท Ads เมื่อมีค่าจริง (>0) แต่บางแถวในไฟล์ DA คอลัมน์นี้เป็น 0/ว่างทั้งที่มี
+    // %ปิดการขายจริงอยู่ (เจอจริงกับ "ใบพู (บุณยาพร)": chatsAds=0, closeVal=30.84) — ถ้าบังคับต้อง
+    // chatsAds>0 ก่อนเสมอเหมือนโค้ดเดิม ค่า %ปิดที่มีจริงจะถูกทิ้งทั้งแถวเงียบๆ กลายเป็นหาร 0/0 ได้ 0% ผิดๆ
+    // แก้เป็นถ่วงน้ำหนักเท่ากัน (weight=1) แทนเมื่อไม่มี chatsAds ให้ถ่วง จะได้ไม่ทิ้งข้อมูลที่มีจริงไป
+    if (!isNaN(row.closeVal)) {
+      var closeWeight = row.chatsAds > 0 ? row.chatsAds : 1;
+      a.closeWeighted += row.closeVal * closeWeight; a.chatsAdsSum += closeWeight;
+    }
     if (!isNaN(row.errVal)) { a.errSum += row.errVal; a.errCount++; }
   });
   return acc;

@@ -491,6 +491,17 @@ var API_TOKEN = 'ptglory_x9k2z7'; // ต้องตรงกับ TOKEN ใน
 var PAGE_API_URL = 'https://script.google.com/macros/s/AKfycbzIT6bifoSmXMwUtBz1RDJNrYpM8mEXGnbqV7c1EHyQffVBTrO1u3ZOSjvX_9i-FBDUDA/exec';
 var PAGE_API_TOKEN = 'glory_pg_0922541941'; // ต้องตรงกับ TOKEN ใน pagestats-appsscript.gs
 
+// เป้า KPI มาตรฐานรายเดือน ใช้เดียวกันทุกคน — ใช้เทียบในหน้ารายละเอียดรายคน (สถิติรายคน) เป็นค่า fallback
+// เฉพาะตอนที่ไฟล์ "KPI ฝ่ายขาย FB 2569" ไม่มีเป้าเฉพาะของคนนั้น/เดือนนั้น (m.has_targets=false) — ถ้าไฟล์ KPI
+// มีเป้าเฉพาะของคนนั้นอยู่แล้ว ยังใช้เป้าจากไฟล์นั้นก่อนเสมอ (อาจตั้งไว้ต่างจากมาตรฐานด้วยเหตุผลเฉพาะคน)
+var STANDARD_KPI_TARGETS = {
+  sales: 600000,   // เป้ายอดขาย บาท/เดือน
+  close: 40,        // เป้า %ปิดการขาย
+  aov: 600,         // เป้ายอดขายเปอร์บิล บาท/บิล
+  error: 5,         // เป้า %Error ไม่เกิน ±5%
+  bounce: 3         // เป้า %ตีกลับ ไม่เกิน 3% ต่อเดือน
+};
+
 // --- ล็อกอินด้วย Gmail (Google Sign-In) ---
 // 1) สร้าง OAuth Client ID (ประเภท "Web application") ที่ https://console.cloud.google.com/apis/credentials
 //    แล้วเพิ่ม URL ของเว็บนี้ (เช่น https://<user>.github.io) ใน "Authorized JavaScript origins"
@@ -984,29 +995,47 @@ function setKpiStatusTag(cls,text){
   var t=el('paKpiStatusTag'); t.className='tag '+cls; t.textContent=emoji+text;
 }
 // แถบเทียบเป้า 1 ตัวชี้วัด — invert=true คือยิ่งต่ำยิ่งดี (เช่น %ตีกลับ) เป้าเป็นเพดานสูงสุดแทนเป้าขั้นต่ำ
-function kpiMetricBar(label,note,actual,actualFmt,target,targetFmt,invert){
+// absMode=true คือเทียบด้วยค่าสัมบูรณ์ (เช่น %Error ที่เกณฑ์เป็น "ไม่เกิน ±5%" ไม่ใช่แค่ต่ำกว่าเป้าฝั่งเดียว)
+function kpiMetricBar(label,note,actual,actualFmt,target,targetFmt,invert,absMode){
   var noteHtml=note?(' <span style="color:var(--faint);font-weight:400">'+note+'</span>'):'';
   if(target==null||actual==null){
     return '<div class="kpimetric"><div class="kpimtop"><span class="lbl">'+label+noteHtml+'</span>'
       +'<span class="val"><b class="num">'+(actualFmt||'—')+'</b> <span>ไม่มีเป้าของเดือนนี้</span></span></div>'
       +'<div class="kpibar"><div class="kpifill warn" style="width:0"></div></div></div>';
   }
-  var pct=target?Math.round(actual/target*100):0;
-  var ok=invert?(actual<=target):(pct>=80);
+  var cmpActual=absMode?Math.abs(actual):actual;
+  var pct=target?Math.round(cmpActual/target*100):0;
+  var ok=(invert||absMode)?(cmpActual<=target):(pct>=80);
+  var targetLbl=absMode?('ไม่เกิน ±'+targetFmt):(invert?('สูงสุด '+targetFmt):('เป้า '+targetFmt));
   return '<div class="kpimetric"><div class="kpimtop"><span class="lbl">'+label+noteHtml+'</span>'
-    +'<span class="val"><b class="num">'+actualFmt+'</b> <span>/ '+(invert?'สูงสุด ':'เป้า ')+targetFmt+'</span></span></div>'
+    +'<span class="val"><b class="num">'+actualFmt+'</b> <span>/ '+targetLbl+'</span></span></div>'
     +'<div class="kpibar"><div class="kpitarget" style="left:100%"></div><div class="kpifill '+(ok?'ok':'warn')+'" style="width:'+Math.max(0,Math.min(100,pct))+'%"></div></div></div>';
 }
-function renderKpiTargets(kpi){
+// r: แถวแอดมินคนนี้จาก getAdminStats() (ใช้เป็น fallback แสดงยอด/ %ปิด/เปอร์บิล/%ตีกลับ/%Error ของ "ช่วงที่เลือก"
+// เทียบกับเป้ามาตรฐาน เมื่อไฟล์ KPI ไม่มีข้อมูลเดือนนี้ของคนนี้เลย — %Error ใช้ r.error_pct เสมอเพราะไฟล์ KPI ไม่มีคอลัมน์นี้ให้)
+function renderKpiTargets(kpi,r){
+  var T=STANDARD_KPI_TARGETS;
   if(!kpi||!kpi.found||!kpi.months||!kpi.months.length){
-    el('paKpiPh').textContent=kpi&&kpi.reason?kpi.reason:'ไม่พบข้อมูลของแอดมินคนนี้ในไฟล์ KPI';
+    el('paKpiPh').textContent=(kpi&&kpi.reason?kpi.reason:'ไม่พบข้อมูลของแอดมินคนนี้ในไฟล์ KPI')+' — แสดงเทียบกับเป้ามาตรฐานบริษัทแทน (ยอด/%ปิด/เปอร์บิลจากช่วงเวลาที่เลือก)';
     el('paKpiScore').textContent='—';
     setKpiStatusTag('a','รอเชื่อมข้อมูล');
-    el('paKpiMetrics').innerHTML='';
+    var fbBounce=(r.kpi_status&&r.kpi_status.bounce_rate!=null)?r.kpi_status.bounce_rate:null;
+    el('paKpiMetrics').innerHTML=
+      kpiMetricBar('ยอดขาย','',r.sales_total,baht(r.sales_total),T.sales,baht(T.sales))
+      +kpiMetricBar('% ปิดการขาย','(%ปิดใหม่)',r.close_rate_new,num1(r.close_rate_new,'%'),T.close,num1(T.close,'%'))
+      +kpiMetricBar('เปอร์บิล','',r.aov_total,baht(r.aov_total),T.aov,baht(T.aov))
+      +(fbBounce!=null?kpiMetricBar('% ตีกลับ','(ยิ่งต่ำยิ่งดี)',fbBounce,num1(fbBounce,'%'),T.bounce,num1(T.bounce,'%'),true):'')
+      +kpiMetricBar('% Error','(ยิ่งต่ำยิ่งดี)',r.error_pct,num1(r.error_pct,'%'),T.error,num1(T.error,'%'),false,true);
     return;
   }
+  var errorPct=r.error_pct;
   var m=kpi.months[kpi.months.length-1];
-  el('paKpiPh').textContent='เทียบกับเป้าที่ตั้งไว้ในไฟล์ KPI ฝ่ายขาย · '+m.label;
+  // เป้าเฉพาะคนจากไฟล์ KPI ถ้ามี (m.has_targets) — ไม่มีก็ fallback ไปใช้เป้ามาตรฐานบริษัทแทน เพื่อให้เทียบได้เสมอ
+  var salesTarget=m.has_targets?m.sales_target:T.sales;
+  var closeTarget=m.has_targets?m.close_target:T.close;
+  var aovTarget=m.has_targets?m.aov_target:T.aov;
+  var bounceTarget=m.has_targets?m.bounce_target:T.bounce;
+  el('paKpiPh').textContent=(m.has_targets?'เทียบกับเป้าที่ตั้งไว้ในไฟล์ KPI ฝ่ายขาย':'ไม่พบเป้าเฉพาะของเดือนนี้ในไฟล์ KPI — เทียบกับเป้ามาตรฐานบริษัทแทน')+' · '+m.label;
   if(!m.has_targets){
     el('paKpiScore').textContent='—';
     setKpiStatusTag('a','ไม่พบคอลัมน์เป้าของเดือนนี้');
@@ -1016,10 +1045,11 @@ function renderKpiTargets(kpi){
     setKpiStatusTag(pass?'pass':'fail',m.status||'—');
   }
   el('paKpiMetrics').innerHTML=
-    kpiMetricBar('ยอดขาย','',m.sales_actual,baht(m.sales_actual),m.has_targets?m.sales_target:null,baht(m.sales_target))
-    +kpiMetricBar('% ปิดการขาย','',m.close_rate_total,num1(m.close_rate_total,'%'),m.has_targets?m.close_target:null,num1(m.close_target,'%'))
-    +kpiMetricBar('เปอร์บิล','',m.aov_actual,baht(m.aov_actual),m.has_targets?m.aov_target:null,baht(m.aov_target))
-    +kpiMetricBar('% ตีกลับ','(ยิ่งต่ำยิ่งดี)',m.bounce_rate,num1(m.bounce_rate,'%'),m.has_targets?m.bounce_target:null,num1(m.bounce_target,'%'),true);
+    kpiMetricBar('ยอดขาย','',m.sales_actual,baht(m.sales_actual),salesTarget,baht(salesTarget))
+    +kpiMetricBar('% ปิดการขาย','',m.close_rate_total,num1(m.close_rate_total,'%'),closeTarget,num1(closeTarget,'%'))
+    +kpiMetricBar('เปอร์บิล','',m.aov_actual,baht(m.aov_actual),aovTarget,baht(aovTarget))
+    +kpiMetricBar('% ตีกลับ','(ยิ่งต่ำยิ่งดี)',m.bounce_rate,num1(m.bounce_rate,'%'),bounceTarget,num1(bounceTarget,'%'),true)
+    +kpiMetricBar('% Error','(ยิ่งต่ำยิ่งดี)',errorPct,num1(errorPct,'%'),T.error,num1(T.error,'%'),false,true);
 }
 function renderAdminDetail(rows,daily,kpi){
   var r=rows.filter(function(x){ return x.admin===curAdminFilter; })[0];
@@ -1057,7 +1087,8 @@ function renderAdminDetail(rows,daily,kpi){
   }
   el('paCloseNew').innerHTML=cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new);
   // เป้าหมาย KPI เดือนนี้ (%ปิดการขาย, %ตีกลับ, คะแนน, สถานะ) — มาจากไฟล์ KPI แยกต่างหาก (join ด้วยรหัสพนักงาน)
-  renderKpiTargets(kpi);
+  // %Error เทียบกับเป้ามาตรฐานเสมอ (ไฟล์ KPI ไม่มีคอลัมน์นี้ให้) ใช้ค่าจากแถวแอดมิน (r.error_pct) ไม่ใช่ไฟล์ KPI
+  renderKpiTargets(kpi,r);
   // เพจที่ดูแลทั้งหมด — แสดงเป็น chip แทนข้อความยาวบรรทัดเดียว
   el('peopleAdminPagesPh').textContent=int0(r.pageCount)+' เพจ ('+((r.units||[]).join(', ')||'—')+') ในช่วงเวลาที่เลือก';
   var pageChips=(r.pages||[]).map(function(p){

@@ -486,10 +486,13 @@
 var API_URL = 'https://glory-api.ptglorydata.workers.dev';
 var API_TOKEN = 'ptglory_x9k2z7'; // ต้องตรงกับ TOKEN ใน worker.js (Cloudflare)
 
-// --- สถิติรายเพจ (ข้อมูลจากชีต "Staging - รายเพจ" แยกต่างหาก ไม่ได้อยู่ใน Worker เดิม) ---
-// ดึงผ่าน Google Apps Script Web App ที่ deploy ไว้บนชีตนั้นโดยตรง (ดู pagestats-appsscript.gs ใน repo นี้)
-var PAGE_API_URL = 'https://script.google.com/macros/s/AKfycbzIT6bifoSmXMwUtBz1RDJNrYpM8mEXGnbqV7c1EHyQffVBTrO1u3ZOSjvX_9i-FBDUDA/exec';
-var PAGE_API_TOKEN = 'glory_pg_0922541941'; // ต้องตรงกับ TOKEN ใน pagestats-appsscript.gs
+// --- สถิติรายเพจ/รายคน (ข้อมูลจากชีต "Staging - รายเพจ" แยกต่างหาก ไม่ได้อยู่ใน Worker glory-api เดิม) ---
+// ย้ายจาก Google Apps Script Web App (pagestats-appsscript.gs) มาที่ Cloudflare Worker แทน (worker/glory-pages-api.js)
+// เพราะ Apps Script ต้องสแกนทั้งชีต Staging ใหม่ทุกคำขอ ทำให้แท็บนี้โหลดช้ากว่าหน้าอื่นมาก — Worker
+// พารามิเตอร์/รูปแบบ JSON เหมือนเดิมทุกประการ เปลี่ยนแค่ URL/token นี้ก็พอ (pagestats-appsscript.gs ยังเก็บไว้
+// เป็น fallback/reference เผื่อ Worker มีปัญหา แต่ไม่ได้ใช้งานจริงแล้ว)
+var PAGE_API_URL = 'https://ptglory-sales-fb.ptglorydata.workers.dev';
+var PAGE_API_TOKEN = 'glory_pg_0922541941'; // ต้องตรงกับ TOKEN ใน worker/glory-pages-api.js
 
 // เป้า KPI มาตรฐานรายเดือน ใช้เดียวกันทุกคน — ใช้เทียบในหน้ารายละเอียดรายคน (สถิติรายคน) เป็นค่า fallback
 // เฉพาะตอนที่ไฟล์ "KPI ฝ่ายขาย FB 2569" ไม่มีเป้าเฉพาะของคนนั้น/เดือนนั้น (m.has_targets=false) — ถ้าไฟล์ KPI

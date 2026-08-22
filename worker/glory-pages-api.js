@@ -424,31 +424,38 @@ async function getPageStats_(env, start, end, unitFilter) {
 // คอลัมน์: A=UNIT(0), D=ชื่อจากไฟล์ต้น(3), E=ยอดขายทั้งหมด(4), G=ยอดตีกลับบาท(6), J=เดือน(9),
 // K=Order รวม(10), L=ยอดขายลูกค้าใหม่(11), M=Order ลูกค้าใหม่(12), N=ยอดขายลูกค้าเก่า(13),
 // O=Order ลูกค้าเก่า(14), U=%ปิดการขายลูกค้าใหม่(20), V=%ERROR(21), Y=จำนวนแชท Ads(24)
-async function getDaTeamMonthRows_(env, month) {
-  var cacheKey = 'da_rows:v1:' + month;
+// ดึงทั้งชีต Data กลางทีม DA แค่ครั้งเดียว (แคชไว้) — เดิม getDaTeamMonthRows_() ดึงทั้งชีตใหม่ทุกครั้ง
+// ที่ถูกเรียกต่อ 1 เดือน ถ้าเลือกช่วงกว้าง (เช่น "ทั้งปี" = 8 เดือน) จะไปดึงชีตเดียวกันซ้ำ 8 รอบ ทำให้
+// หน้าเว็บช้ามาก แยกออกมาให้ดึง Sheets API ครั้งเดียวไม่ว่าจะถามกี่เดือน แล้วกรองตามเดือนในหน่วยความจำแทน
+async function loadDaTeamAllRows_(env) {
+  var cacheKey = 'da_rows:v1:all';
   var cached = await kvGetJson_(env, cacheKey);
   if (cached) return cached;
+  var values = await fetchTabValues_(env, DA_TEAM_SHEET_ID, DA_TEAM_TAB, 'FORMATTED_VALUE');
   var rows = [];
-  var y = parseInt(month.slice(0, 4), 10), targetMonthNum = parseInt(month.slice(5, 7), 10);
-  if (y === DA_TEAM_YEAR) {
-    var values = await fetchTabValues_(env, DA_TEAM_SHEET_ID, DA_TEAM_TAB, 'FORMATTED_VALUE');
-    for (var r = 1; r < values.length; r++) {
-      var row = values[r];
-      var name = String(row[3] || '').trim();
-      if (!name) continue; // แถวเปล่า (เดือนที่ยังไม่มีข้อมูลจริง ระบบเว้นที่ไว้ล่วงหน้า)
-      if (parseInt(row[9], 10) !== targetMonthNum) continue;
-      var key = normalizeAdminKey_(name);
-      key = DA_NAME_ALIASES_[key] || key;
-      rows.push({
-        unit: String(row[0] || '').trim(), key: key,
-        salesTotal: num_(row[4]), bounceAmt: num_(row[6]), ordersTotal: num_(row[10]),
-        salesNew: num_(row[11]), ordersNew: num_(row[12]), salesOld: num_(row[13]), ordersOld: num_(row[14]),
-        chatsAds: num_(row[24]), closeVal: pct_(row[20]), errVal: pct_(row[21])
-      });
-    }
+  for (var r = 1; r < values.length; r++) {
+    var row = values[r];
+    var name = String(row[3] || '').trim();
+    if (!name) continue; // แถวเปล่า (เดือนที่ยังไม่มีข้อมูลจริง ระบบเว้นที่ไว้ล่วงหน้า)
+    var monthNum = parseInt(row[9], 10);
+    if (isNaN(monthNum)) continue;
+    var key = normalizeAdminKey_(name);
+    key = DA_NAME_ALIASES_[key] || key;
+    rows.push({
+      unit: String(row[0] || '').trim(), key: key, month: monthNum,
+      salesTotal: num_(row[4]), bounceAmt: num_(row[6]), ordersTotal: num_(row[10]),
+      salesNew: num_(row[11]), ordersNew: num_(row[12]), salesOld: num_(row[13]), ordersOld: num_(row[14]),
+      chatsAds: num_(row[24]), closeVal: pct_(row[20]), errVal: pct_(row[21])
+    });
   }
   await kvPutJson_(env, cacheKey, rows, TTL_MONTH_DATA);
   return rows;
+}
+async function getDaTeamMonthRows_(env, month) {
+  var y = parseInt(month.slice(0, 4), 10), targetMonthNum = parseInt(month.slice(5, 7), 10);
+  if (y !== DA_TEAM_YEAR) return [];
+  var allRows = await loadDaTeamAllRows_(env);
+  return allRows.filter(function (r) { return r.month === targetMonthNum; });
 }
 
 // รวมแถวดิบตามคนคนเดียวกัน (อาจมีหลายแถวในเดือนเดียวกันถ้าย้ายไปช่วยหลายยูนิต) — ยอดขาย/ออเดอร์รวมตรงๆ
@@ -534,12 +541,25 @@ async function getRosterMap_(env) {
 
 // สแกนแท็บ "KPI แอดมิน" หาตำแหน่งคอลัมน์ "รหัสพนักงาน" และคอลัมน์ค่าจริง 4 ตัวของทุกบล็อกเดือน
 // จากข้อความหัวตารางจริงเสมอ (ไม่ hardcode ตัวอักษรคอลัมน์ เพราะบล็อกอาจขยับ/กว้างไม่เท่ากัน)
-async function getKpiSheetLayout_(env) {
-  var cacheKey = 'kpi_layout:v1';
+// ดึงทั้งแท็บ KPI แอดมิน แค่ครั้งเดียว (แคชไว้) — ใช้ร่วมกันทั้ง getKpiSheetLayout_() (หาตำแหน่งคอลัมน์)
+// และ getKpiMonthData_() (อ่านค่าจริง) เดิมสองฟังก์ชันนี้ต่างคนต่างดึงทั้งแท็บเอง ถ้าถามหลายเดือน
+// (เช่น "ทั้งปี") getKpiMonthData_() จะดึงแท็บเดียวกันซ้ำทุกเดือนโดยไม่จำเป็น
+async function loadKpiRawValues_(env) {
+  var cacheKey = 'kpi_raw:v1';
   var cached = await kvGetJson_(env, cacheKey);
   if (cached) return cached;
   var tabTitle = await getSheetTitleByGid_(env, KPI_SHEET_ID, KPI_TAB_GID);
   var values = await fetchTabValues_(env, KPI_SHEET_ID, tabTitle, 'FORMATTED_VALUE');
+  var out = { tabTitle: tabTitle, values: values };
+  await kvPutJson_(env, cacheKey, out, TTL_MONTH_DATA);
+  return out;
+}
+async function getKpiSheetLayout_(env) {
+  var cacheKey = 'kpi_layout:v1';
+  var cached = await kvGetJson_(env, cacheKey);
+  if (cached) return cached;
+  var raw = await loadKpiRawValues_(env);
+  var tabTitle = raw.tabTitle, values = raw.values;
   var row1 = values[0] || [], row3 = values[2] || [];
   var lastCol = Math.max(row1.length, row3.length);
 
@@ -591,7 +611,7 @@ async function getKpiMonthData_(env, month) {
   var result = {};
 
   if (block) {
-    var values = await fetchTabValues_(env, KPI_SHEET_ID, layout.tabTitle, 'FORMATTED_VALUE');
+    var values = (await loadKpiRawValues_(env)).values;
     for (var r = 3; r < values.length; r++) {
       var row = values[r];
       var nick = empIdToNick[String(row[layout.empIdCol] || '').trim()];

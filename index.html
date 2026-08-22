@@ -999,8 +999,11 @@ function setKpiStatusTag(cls,text){
 function kpiMetricBar(label,note,actual,actualFmt,target,targetFmt,invert,absMode){
   var noteHtml=note?(' <span style="color:var(--faint);font-weight:400">'+note+'</span>'):'';
   if(target==null||actual==null){
+    // แยกข้อความ: actual เป็น null แปลว่าไม่มีข้อมูลตัวชี้วัดนี้เลย (เช่น %Error ที่ไฟล์ DA ไม่ได้กรอกไว้)
+    // ต้องบอกว่า "ไม่มีข้อมูล" ไม่ใช่ "ไม่มีเป้า" — ถ้าบอกผิดจะดูเหมือนแค่ยังไม่ตั้งเป้า ทั้งที่จริงคือวัดไม่ได้เลย
+    var msg=actual==null?'ไม่มีข้อมูล':'ไม่มีเป้าของเดือนนี้';
     return '<div class="kpimetric"><div class="kpimtop"><span class="lbl">'+label+noteHtml+'</span>'
-      +'<span class="val"><b class="num">'+(actualFmt||'—')+'</b> <span>ไม่มีเป้าของเดือนนี้</span></span></div>'
+      +'<span class="val"><b class="num">'+(actualFmt||'—')+'</b> <span>'+msg+'</span></span></div>'
       +'<div class="kpibar"><div class="kpifill warn" style="width:0"></div></div></div>';
   }
   var cmpActual=absMode?Math.abs(actual):actual;

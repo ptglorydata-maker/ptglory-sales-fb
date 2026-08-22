@@ -434,9 +434,12 @@ function getAdminStats(start, end, unitFilter, adminFilter) {
     var closeRateNew = hasReal
       ? (a.chatsAdsSum ? round2_(a.closeWeighted / a.chatsAdsSum) : 0)
       : (g.closeWeight ? round2_(g.closeWeighted / g.closeWeight) : 0);
+    // null (ไม่ใช่ 0) เมื่อไม่มีค่า % Error ที่ใช้ได้เลยสักแถว — คอลัมน์ V ในไฟล์ DA มักว่างเปล่าจริงๆ
+    // (ไม่ใช่ 0%) ถ้าเดา 0 แทน จะดูเหมือน error rate สมบูรณ์แบบทั้งที่แค่ไม่มีข้อมูล ให้ฝั่งเว็บโชว์
+    // "ไม่มีข้อมูล" แทนเป้าหมายที่ผ่านหลอกๆ
     var errorPct = hasReal
-      ? (a.errCount ? round2_(a.errSum / a.errCount) : 0)
-      : (g.errCount ? round2_(g.errSum / g.errCount) : 0);
+      ? (a.errCount ? round2_(a.errSum / a.errCount) : null)
+      : (g.errCount ? round2_(g.errSum / g.errCount) : null);
     // ค่าแอด/ROAS/ต้นทุนทัก: มาจากแท็บเพจ (staging_รายเพจ) เสมอ ไม่มีในไฟล์ DA
     var adSpend = g.ad_spend;
     var costPerChat = g.chats_ads ? round2_(g.ad_spend / g.chats_ads) : 0;
@@ -782,7 +785,7 @@ function getDaTeamMonthDataCached_(month) {
       orders_total: a.ordersSum,
       aov_actual: a.ordersNewSum ? round2_(a.salesNewSum / a.ordersNewSum) : 0,
       close_rate_total: a.chatsAdsSum ? round2_(a.closeWeighted / a.chatsAdsSum) : 0,
-      error_pct: a.errCount ? round2_(a.errSum / a.errCount) : 0
+      error_pct: a.errCount ? round2_(a.errSum / a.errCount) : null // null = ไม่มีข้อมูล % Error ของเดือนนี้ในไฟล์ DA เลย (ไม่ใช่ 0% จริง)
     };
   });
   return result;

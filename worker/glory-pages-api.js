@@ -54,12 +54,15 @@ function strToB64Url(str) {
   return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 async function importPrivateKey(pem) {
-  // ตัด header/footer ด้วย regex (ไม่ใช่ exact string match) แล้วกรองอักขระที่ไม่ใช่ base64 ทิ้งทั้งหมด
-  // (เว้นวรรค/บรรทัดใหม่/เครื่องหมาย \n ที่หลุดมาตอน copy-paste secret ผ่าน UI) กัน atob() พังเพราะ
-  // ตัวคั่นหลุดรอดมาไม่กี่ตัวอักษร (เจอจริง: "-----BEGIN PRIVATE KEY-----" เหลือ "-" ปนซึ่งไม่ใช่ base64)
+  // ต้องตัด header/footer ให้ถูกแม้ตอน paste secret ผ่าน Cloudflare dashboard UI จะไม่มีขึ้นบรรทัดใหม่เหลือ
+  // เลยสักตัว (ยืนยันจริง: raw_line_count=1) เจอบั๊ก: ตัวแรกใช้ [^-]+ (อะไรก็ได้ที่ไม่ใช่ "-") เป็น greedy
+  // พอไม่มี \n มาคั่น มันเลยกวาดกินตั้งแต่ "BEGIN " ยาวไปจนถึง "-----" ตัวถัดไปที่เจอ (คือ "-----END...")
+  // กลืนคีย์จริงทั้งก้อนหายหมด เหลือ cleaned_length=0 — แก้เป็นจำกัด charset ตรงกลางแค่ A-Z/เว้นวรรค (ตัวอักษร
+  // header จริงๆ) แทน เพราะ base64 ของคีย์จริงมีตัวพิมพ์เล็ก/ตัวเลข/+//  ปนอยู่เสมอเร็วมาก (ไม่กี่ตัวอักษรแรก
+  // ก็เจอตัวพิมพ์เล็กแล้ว) รับประกันว่า regex จะหยุดที่ "-----" ปิดของ header เองตามธรรมชาติ ไม่ล้นไปกินคีย์จริง
+  // (base64 มาตรฐานไม่มี "-" ปนอยู่เลย ขีดกลางที่เจอในสตริงทั้งหมดจึงมีแค่ในตัวคั่น header/footer เท่านั้น)
   var body = String(pem || '')
-    .replace(/-----BEGIN [^-]+-----/g, '')
-    .replace(/-----END [^-]+-----/g, '')
+    .replace(/-----[A-Z ]+-----/g, '')
     .replace(/[^A-Za-z0-9+/=]/g, '');
   if (!body) throw new Error('GOOGLE_PRIVATE_KEY ว่างเปล่าหลังตัด header/footer — เช็คว่า paste ค่าครบหรือไม่');
   var der = b64ToBuf(body);
@@ -827,7 +830,7 @@ export default {
         // ดีบั๊กชั่วคราว: เช็คว่า secret GOOGLE_PRIVATE_KEY ที่เก็บไว้จริงยาว/ตัดหัวท้ายแล้วถูกต้องไหม
         // ไม่โชว์เนื้อหาจริงเลยแม้แต่ตัวเดียว (เอาแค่ 6 ตัวแรก/ท้ายของ "ค่าดิบ" พอเดาไม่ได้ว่า key จริงคืออะไร)
         var raw = env.GOOGLE_PRIVATE_KEY || '';
-        var cleaned = raw.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '').replace(/[^A-Za-z0-9+/=]/g, '');
+        var cleaned = raw.replace(/-----[A-Z ]+-----/g, '').replace(/[^A-Za-z0-9+/=]/g, '');
         out = {
           has_secret: !!raw,
           raw_length: raw.length,

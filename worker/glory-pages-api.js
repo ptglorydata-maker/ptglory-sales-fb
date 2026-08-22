@@ -672,14 +672,24 @@ async function getKpiStatusBatch_(env, adminNicknames, start, end) {
   if (!adminNicknames.length) return out;
   var months = monthsBetween_(start, end);
   var lastMonth = months[months.length - 1];
-  var daMonthData = await getDaTeamMonthData_(env, lastMonth);
+
+  // %ตีกลับ: รวม/ถ่วงน้ำหนักตามยอดขายทุกเดือนในช่วงที่เลือก (ไม่ใช่แค่เดือนล่าสุดเดือนเดียวเหมือนเดิม)
+  // เพราะเดือนล่าสุดเดือนเดียวอาจยังกรอกข้อมูลตีกลับไม่ครบ (เช่นเดือนปัจจุบันที่ยังไม่จบเดือน) ทำให้ดูเหมือน
+  // 0% หมดทุกคนทั้งที่จริงมีข้อมูลตีกลับสะสมทั้งปีอยู่ — ไม่กรองยูนิต (เหมือนเดิม เพราะ badge นี้ไม่กรองยูนิต)
+  var daRowsAll = [];
+  for (var i = 0; i < months.length; i++) daRowsAll = daRowsAll.concat(await getDaTeamMonthRows_(env, months[i]));
+  var daAggAll = aggregateDaRows_(daRowsAll, '');
+
+  // score/status "ผ่าน/ไม่ผ่าน KPI" ยังคงใช้แค่เดือนล่าสุดเดือนเดียว (เป็นผลประเมินรายเดือน เฉลี่ยข้ามปีไม่สมเหตุสมผล)
   var kpiMonthData = {};
   try { kpiMonthData = await getKpiMonthData_(env, lastMonth); } catch (e) { /* ไฟล์ KPI เดิมพังก็ไม่เป็นไร ยังมีค่าจาก DA */ }
+
   adminNicknames.forEach(function (nick) {
-    var da = daMonthData[normalizeAdminKey_(nick)];
+    var daAll = daAggAll[normalizeAdminKey_(nick)];
     var kpi = kpiMonthData[nick];
-    if (!da && !kpi) return;
-    out[nick] = { month: lastMonth, score: kpi ? kpi.score : null, status: kpi ? kpi.status : '', bounce_rate: da ? da.bounce_rate : (kpi ? kpi.bounce_rate : null) };
+    if (!daAll && !kpi) return;
+    var bounceRate = daAll ? (daAll.salesSum ? round2_(daAll.bounceAmtSum / daAll.salesSum * 100) : 0) : (kpi ? kpi.bounce_rate : null);
+    out[nick] = { month: lastMonth, score: kpi ? kpi.score : null, status: kpi ? kpi.status : '', bounce_rate: bounceRate };
   });
   return out;
 }

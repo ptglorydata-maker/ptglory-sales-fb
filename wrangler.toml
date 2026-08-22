@@ -1,11 +1,20 @@
-name = "glory-pages-api"
+# ชื่อนี้ต้องตรงกับชื่อโปรเจกต์ Workers Builds จริงบน Cloudflare Dashboard ("ptglory-sales-fb" ไม่ใช่
+# "glory-pages-api" ที่ตั้งใจไว้แต่แรก) เพราะ Workers Builds (deploy ผ่าน git push, รัน `wrangler deploy`)
+# บังคับให้สคริปต์ใช้ชื่อของโปรเจกต์ที่สร้างไว้ ไม่สนใจค่า name ในไฟล์นี้เลย — ผลคือ URL จริงกลายเป็น
+# https://ptglory-sales-fb.ptglorydata.workers.dev แทนที่จะเป็น glory-pages-api.ptglorydata.workers.dev
+name = "ptglory-sales-fb"
 main = "worker/glory-pages-api.js"
 compatibility_date = "2024-01-01"
 
-# ผูก KV namespace ชื่อ GLORY_KV หลัง deploy ครั้งแรกผ่าน Dashboard:
-# Worker > Settings > Bindings > Add > KV Namespace > binding name = GLORY_KV
-# เลือก namespace เดิม (glory-visits) หรือสร้างใหม่ก็ได้
+# KV binding ต้องประกาศไว้ในไฟล์นี้เสมอ (ห้ามผูกผ่าน Dashboard เฉยๆ) — เจอบั๊กจริง: `wrangler deploy`
+# ที่ Workers Builds รันทุกครั้งที่ push ถือว่า wrangler.toml คือความจริงทั้งหมดของ binding ทุกตัว
+# พอไม่มีประกาศไว้ตรงนี้ การผูก KV ผ่าน Dashboard ก่อนหน้าเลยถูกลบทิ้งไปเงียบๆ ตอน deploy รอบถัดไป
+# (ต่างจาก secret ที่ไม่ได้อยู่ใน wrangler.toml เลยไม่โดนผลกระทบนี้)
+[[kv_namespaces]]
+binding = "GLORY_KV"
+id = "d613e540a6824ea3a1d07ad993f1fe60" # namespace "glory-pages-cache"
 
-# ตั้งค่า secret GOOGLE_PRIVATE_KEY หลัง deploy ครั้งแรกผ่าน Dashboard:
-# Worker > Settings > Variables and Secrets > Add > ชื่อ GOOGLE_PRIVATE_KEY (encrypt)
-# ใส่ค่า private_key จากไฟล์ service account JSON (glory-sheets-reader-456@...)
+# ตั้งค่า secret GOOGLE_PRIVATE_KEY ผ่าน Dashboard เท่านั้น (Worker > Settings > Variables and Secrets)
+# ห้ามใส่ค่าจริงลงไฟล์นี้เด็ดขาดเพราะ commit เข้า git repo public ได้ — ใส่ private_key จากไฟล์
+# service account JSON (glory-sheets-reader-456@...) ค่านี้ไม่ได้อยู่ใน wrangler.toml จึงไม่โดน
+# wrangler deploy เขียนทับทิ้งเหมือน KV binding ข้างบน

@@ -651,12 +651,14 @@ async function getKpiMonthData_(env, month) {
   var cached = await kvGetJson_(env, cacheKey);
   if (cached) return cached;
 
-  var rosterMap = await getRosterMap_(env);
+  // roster (ชีต "test-รายงานเพจ FB") กับ layout/ค่าดิบไฟล์ KPI (ชีต "KPI ฝ่ายขาย FB 2569") เป็นคนละ
+  // สเปรดชีตกัน ไม่ขึ้นต่อกันเลย — เดิม await ทีละตัวทำให้เสียเวลารอ Google Sheets API สองรอบต่อกันตอน
+  // cache miss (cold start) ยิงพร้อมกันด้วย Promise.all ประหยัดเวลาไปเกือบครึ่งของสองคำขอนี้
+  var parts = await Promise.all([getRosterMap_(env), getKpiSheetLayout_(env)]);
+  var rosterMap = parts[0], layout = parts[1];
   var empIdToNick = {};
   Object.keys(rosterMap).forEach(function (nick) { empIdToNick[rosterMap[nick]] = nick; });
-
-  var layout = await getKpiSheetLayout_(env);
-  var values = (await loadKpiRawValues_(env)).values;
+  var values = (await loadKpiRawValues_(env)).values; // getKpiSheetLayout_ ข้างบนโหลด/แคชค่านี้ไว้แล้ว เรียกซ้ำแค่ตี KV cache เร็ว ๆ
   var result = computeKpiMonthResult_(layout, values, empIdToNick, month);
   await kvPutJson_(env, cacheKey, result, TTL_MONTH_DATA);
   return result;
@@ -664,10 +666,10 @@ async function getKpiMonthData_(env, month) {
 // โหลด roster/layout/ค่าดิบไฟล์ KPI ครั้งเดียว ใช้ตอนต้องคำนวณหลายเดือนพร้อมกัน (getAdminKpi_) กัน
 // KV round-trip ซ้ำต่อเดือนโดยไม่จำเป็น (ทั้ง 3 อย่างนี้ไม่ขึ้นกับเดือน ใช้ร่วมกันได้ทุกเดือนอยู่แล้ว)
 async function loadKpiFullContext_(env) {
-  var rosterMap = await getRosterMap_(env);
+  var parts = await Promise.all([getRosterMap_(env), getKpiSheetLayout_(env)]);
+  var rosterMap = parts[0], layout = parts[1];
   var empIdToNick = {};
   Object.keys(rosterMap).forEach(function (nick) { empIdToNick[rosterMap[nick]] = nick; });
-  var layout = await getKpiSheetLayout_(env);
   var values = (await loadKpiRawValues_(env)).values;
   return { layout: layout, values: values, empIdToNick: empIdToNick };
 }
@@ -731,12 +733,16 @@ async function getKpiStatusBatch_(env, adminNicknames, start, end) {
   // %ตีกลับ: รวม/ถ่วงน้ำหนักตามยอดขายทุกเดือนในช่วงที่เลือก (ไม่ใช่แค่เดือนล่าสุดเดือนเดียวเหมือนเดิม)
   // เพราะเดือนล่าสุดเดือนเดียวอาจยังกรอกข้อมูลตีกลับไม่ครบ (เช่นเดือนปัจจุบันที่ยังไม่จบเดือน) ทำให้ดูเหมือน
   // 0% หมดทุกคนทั้งที่จริงมีข้อมูลตีกลับสะสมทั้งปีอยู่ — ไม่กรองยูนิต (เหมือนเดิม เพราะ badge นี้ไม่กรองยูนิต)
-  var allDaRows = await loadDaTeamAllRows_(env);
-  var daAggAll = aggregateDaRows_(filterDaRowsByMonths_(allDaRows, months), '');
-
-  // score/status "ผ่าน/ไม่ผ่าน KPI" ยังคงใช้แค่เดือนล่าสุดเดือนเดียว (เป็นผลประเมินรายเดือน เฉลี่ยข้ามปีไม่สมเหตุสมผล)
+  // ทั้งสองบรรทัดข้างล่างไม่ขึ้นต่อกัน (คนละสเปรดชีต) ยิงพร้อมกันด้วย Promise.all — ปกติ allDaRows จะตี KV
+  // cache ที่ getAdminStats_ อุ่นไว้ให้แล้ว แต่เผื่อเรียกฟังก์ชันนี้ตรงๆ จากที่อื่นในอนาคตก็ยังเร็วสุดเท่าที่ทำได้
   var kpiMonthData = {};
-  try { kpiMonthData = await getKpiMonthData_(env, lastMonth); } catch (e) { /* ไฟล์ KPI เดิมพังก็ไม่เป็นไร ยังมีค่าจาก DA */ }
+  var parallel = await Promise.all([
+    loadDaTeamAllRows_(env),
+    getKpiMonthData_(env, lastMonth).catch(function () { return null; }) // ไฟล์ KPI เดิมพังก็ไม่เป็นไร ยังมีค่าจาก DA
+  ]);
+  var allDaRows = parallel[0];
+  if (parallel[1]) kpiMonthData = parallel[1];
+  var daAggAll = aggregateDaRows_(filterDaRowsByMonths_(allDaRows, months), '');
 
   adminNicknames.forEach(function (nick) {
     var daAll = daAggAll[normalizeAdminKey_(nick)];
@@ -757,7 +763,11 @@ async function getKpiStatusBatch_(env, adminNicknames, start, end) {
 // ---------- สถิติรายแอดมิน (leaderboard + รายละเอียดคนเดียว) ----------
 // ============================================================
 async function getAdminStats_(env, start, end, unitFilter, adminFilter) {
-  var rows = await loadPagesRows_(env);
+  // loadPagesRows_ (ชีต Staging - รายเพจ) กับ loadDaTeamAllRows_ (ชีต Data กลางทีม DA) เป็นคนละสเปรดชีต
+  // ไม่ขึ้นต่อกัน — เดิม await ทีละตัว (ตัวที่สองรอจนกว่าจะวน rows.forEach คำนวณ byAdmin เสร็จก่อนด้วยซ้ำ)
+  // ยิงพร้อมกันด้วย Promise.all กันเสียเวลารอ Google Sheets API สองรอบต่อกันตอน cache miss (cold start)
+  var loaded = await Promise.all([loadPagesRows_(env), loadDaTeamAllRows_(env)]);
+  var rows = loaded[0], allDaRowsPreloaded = loaded[1];
   if (!rows.length) return { rows: [], daily: null, start: start, end: end };
 
   var startMs = new Date(start + 'T00:00:00').getTime(), endMs = new Date(end + 'T23:59:59').getTime();
@@ -798,7 +808,7 @@ async function getAdminStats_(env, start, end, unitFilter, adminFilter) {
 
   // ยอดขาย/ออเดอร์/%ปิดใหม่/เปอร์บิล/%ERROR "ของจริงรายคน" มาจากไฟล์ Data กลางทีม DA เสมอเมื่อมีข้อมูล
   var months = monthsBetween_(start, end);
-  var allDaRows = await loadDaTeamAllRows_(env);
+  var allDaRows = allDaRowsPreloaded; // โหลดพร้อมกับ loadPagesRows_ ไว้แล้วข้างบน
   var daAgg = aggregateDaRows_(filterDaRowsByMonths_(allDaRows, months), unitFilter);
   // personalAgg สแกน staging_รายคน (~50,000 แถว) ใช้แค่ตอนดูรายละเอียดคนเดียว (มี adminFilter) เพื่อวาด
   // กราฟแนวโน้มรายวันจริง — ตอนดู leaderboard "ทั้งหมด" ไม่ได้ใช้ค่านี้เลย ข้ามไปกันโหลดหนักเปล่าๆ

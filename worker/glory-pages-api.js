@@ -879,9 +879,36 @@ async function getAdminStats_(env, start, end, unitFilter, adminFilter) {
 }
 
 // ============================================================
+// ---------- Cron: อุ่น KV cache ล่วงหน้าก่อน TTL หมดอายุ ----------
+// ============================================================
+// ผู้ใช้เจอ "โหลดไม่สำเร็จ ใช้เวลานานเกินไป" (เกิน timeout 25 วิฝั่งหน้าเว็บ) เพราะ default view ของทั้ง
+// "สถิติรายเพจ" และ "สถิติรายคน" (เดือนนี้ถึงวันนี้) มี end=วันนี้ ที่เปลี่ยนทุกวัน ทำให้ cache key ของผลลัพธ์
+// (resp:v1:...) เป็นก้อนใหม่ทุกวันเสมอ ต่อให้ Promise.all ขนานงานแล้วก็ยังต้องรอ Google Sheets API
+// จริงหลายรอบตอนคนแรกของวันเข้ามา (โดยเฉพาะถ้าห่างจากคนก่อนหน้าเกิน TTL_RAW_ROWS/TTL_MONTH_DATA
+// ด้วย) — รัน cron ทุก 5 นาที (ดู wrangler.toml [triggers]) เรียกฟังก์ชันเดียวกับที่ผู้ใช้จะเรียก
+// เพื่ออุ่นทั้ง raw-row cache ชั้นล่างและ resp:v1 cache ชั้นบนของ view เริ่มต้นไว้ล่วงหน้าเสมอ ผู้ใช้จริง
+// แทบไม่มีโอกาสเจอ cache miss เต็มรูปแบบอีกเลย
+async function warmDefaultCaches_(env) {
+  var now = new Date();
+  var start = fmtYMD_(new Date(now.getFullYear(), now.getMonth(), 1));
+  var end = fmtYMD_(now);
+  await Promise.all([
+    getAdminStats_(env, start, end, '', '')
+      .then(function (out) { return kvPutJson_(env, 'resp:v1:admin_stats:' + start + '|' + end + '||', out, TTL_RESULT); })
+      .catch(function () { /* ล้มเหลวรอบนี้ก็แค่ไม่อุ่น cache ไม่ใช่เรื่องคอขาดบาดตาย รอบหน้า cron ค่อยลองใหม่ */ }),
+    getPageStats_(env, start, end, '')
+      .then(function (out) { return kvPutJson_(env, 'resp:v1:page_stats:' + start + '|' + end + '|', out, TTL_RESULT); })
+      .catch(function () { })
+  ]);
+}
+
+// ============================================================
 // ---------- HTTP handler ----------
 // ============================================================
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(warmDefaultCaches_(env));
+  },
   async fetch(request, env, ctx) {
     var url = new URL(request.url);
     var headers = {

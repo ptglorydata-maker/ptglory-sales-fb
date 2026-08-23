@@ -18,3 +18,9 @@ id = "d613e540a6824ea3a1d07ad993f1fe60" # namespace "glory-pages-cache"
 # ห้ามใส่ค่าจริงลงไฟล์นี้เด็ดขาดเพราะ commit เข้า git repo public ได้ — ใส่ private_key จากไฟล์
 # service account JSON (glory-sheets-reader-456@...) ค่านี้ไม่ได้อยู่ใน wrangler.toml จึงไม่โดน
 # wrangler deploy เขียนทับทิ้งเหมือน KV binding ข้างบน
+
+# cron อุ่น KV cache ของ default view ("เดือนนี้ถึงวันนี้") ล่วงหน้าทุก 5 นาที กัน cache miss เต็มรูปแบบ
+# (ต้องรอ Google Sheets API หลายรอบสด ๆ จนเกิน timeout ฝั่งหน้าเว็บ) ตอนผู้ใช้คนแรกของวันเข้ามา —
+# ดู warmDefaultCaches_() ใน worker/glory-pages-api.js
+[triggers]
+crons = ["*/5 * * * *"]

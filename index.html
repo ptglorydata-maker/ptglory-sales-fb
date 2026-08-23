@@ -794,10 +794,17 @@ function callPageApi(params,onSuccess,onError){
   if(!PAGE_API_URL){ onError({message:'ยังไม่ได้ตั้งค่า PAGE_API_URL ในโค้ด กรุณาติดต่อผู้ดูแลระบบ'}); return; }
   params.token=PAGE_API_TOKEN;
   var qs=Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
-  fetch(PAGE_API_URL+'?'+qs)
+  // กันหน้าค้างโหลดตลอดไปถ้า Worker ตอบช้าผิดปกติ (เช่น cold start/สแกนชีตหนัก) — ยกเลิกคำขอเองหลัง 25 วิ
+  // แล้วแจ้ง error ให้ผู้ใช้เห็นแทนที่จะปล่อยให้ spinner ค้างเงียบๆ ไม่รู้จบ
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ ctrl.abort(); },25000);
+  fetch(PAGE_API_URL+'?'+qs,{signal:ctrl.signal})
     .then(function(r){return r.json();})
-    .then(onSuccess)
-    .catch(function(e){onError({message:e.message||'Network error'});});
+    .then(function(d){ clearTimeout(timer); onSuccess(d); })
+    .catch(function(e){
+      clearTimeout(timer);
+      onError({message:e.name==='AbortError'?'เซิร์ฟเวอร์ตอบช้าเกินไป (เกิน 25 วินาที) กรุณาลองใหม่':(e.message||'Network error')});
+    });
 }
 function loadPageStats(){
   el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');

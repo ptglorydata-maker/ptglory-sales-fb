@@ -743,7 +743,12 @@ async function getKpiStatusBatch_(env, adminNicknames, start, end) {
     var kpi = kpiMonthData[nick];
     if (!daAll && !kpi) return;
     var bounceRate = daAll ? (daAll.salesSum ? round2_(daAll.bounceAmtSum / daAll.salesSum * 100) : 0) : (kpi ? kpi.bounce_rate : null);
-    out[nick] = { month: lastMonth, score: kpi ? kpi.score : null, status: kpi ? kpi.status : '', bounce_rate: bounceRate };
+    // sales_target: เป้ายอดขายเดือนล่าสุดจากไฟล์ KPI (ถ้ามี) — ใช้คำนวณ Achievement/Forecast/Risk ที่หน้า
+    // "สถิติรายคน" (Sales Target Tracking AI) ฝั่ง frontend ไม่มีเป้าเฉพาะคนก็ fallback ไปใช้เป้ามาตรฐานแทน
+    out[nick] = {
+      month: lastMonth, score: kpi ? kpi.score : null, status: kpi ? kpi.status : '', bounce_rate: bounceRate,
+      has_targets: !!(kpi && kpi.has_targets), sales_target: (kpi && kpi.has_targets) ? kpi.sales_target : null
+    };
   });
   return out;
 }

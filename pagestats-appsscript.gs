@@ -865,7 +865,9 @@ function getKpiStatusBatch_(adminNicknames, start, end) {
       month: lastMonth,
       score: kpi ? kpi.score : null,
       status: kpi ? kpi.status : '',
-      bounce_rate: da ? da.bounce_rate : (kpi ? kpi.bounce_rate : null)
+      bounce_rate: da ? da.bounce_rate : (kpi ? kpi.bounce_rate : null),
+      has_targets: !!(kpi && kpi.has_targets),
+      sales_target: (kpi && kpi.has_targets) ? kpi.sales_target : null
     };
   });
   return out;

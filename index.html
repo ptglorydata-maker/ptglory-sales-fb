@@ -149,6 +149,15 @@
   .tag.risklow{color:#1a7a4c;background:#E1F3E9}
   .tag.riskmed{color:#8A5A2A;background:var(--amber-soft)}
   .tag.riskhigh{color:#B4452F;background:var(--coral-soft)}
+  .ensub{font-size:10px;font-weight:400;color:var(--faint)}
+  th .ensub{display:block;text-transform:none;letter-spacing:0}
+  .ptrank{width:24px;height:24px;border-radius:50%;background:var(--page);border:1px solid var(--line);color:var(--muted);
+    font-family:'Anuphan';font-weight:600;font-size:11.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .ptrank.top1{background:linear-gradient(135deg,#E8C35A,#C9942D);color:#fff;border:none}
+  .ptrank.top2{background:linear-gradient(135deg,#C7C7CE,#8C8C96);color:#fff;border:none}
+  .ptrank.top3{background:linear-gradient(135deg,#D68F63,#B0673A);color:#fff;border:none}
+  .ptname-cell{display:flex;align-items:center;gap:10px}
+  .hit-badge{font-size:10.5px;font-weight:600;color:#1a7a4c;background:#E1F3E9;padding:1px 7px;border-radius:20px;margin-left:6px;white-space:nowrap}
   #loading{position:absolute;inset:0;background:rgba(251,243,239,.75);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted);z-index:5}
   .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--jade);border-radius:50%;animation:s .7s linear infinite;margin-right:8px}
   @keyframes s{to{transform:rotate(360deg)}}
@@ -421,7 +430,7 @@
         <div class="grid row-kpi" style="grid-template-columns:repeat(4,1fr);margin-bottom:15px" id="pttKpis">
           <div class="kpi"><div class="lbl">🎯 เป้าหมายรวมของช่วงนี้</div><div class="big num" id="pttTarget">—</div><div class="sub" id="pttTargetSub"></div></div>
           <div class="kpi"><div class="lbl">📈 ยอดขายปัจจุบัน</div><div class="big num" id="pttActual">—</div><div class="sub" id="pttActualSub"></div></div>
-          <div class="kpi"><div class="lbl">🥧 % Achievement</div><div class="big num" id="pttAchievePct">—</div><div class="sub">เทียบกับเป้า</div></div>
+          <div class="kpi"><div class="lbl">🥧 % ความสำเร็จ <span class="ensub">(Achievement)</span></div><div class="big num" id="pttAchievePct">—</div><div class="sub">เทียบกับเป้า</div></div>
           <div class="kpi"><div class="lbl">📅 คาดการณ์สิ้นช่วง</div><div class="big num" id="pttForecastTotal">—</div><div class="sub" id="pttForecastSub"></div></div>
         </div>
         <div class="panel" style="margin:0 0 18px" id="pttGaugePanel">
@@ -432,10 +441,10 @@
             </div>
             <div class="ptt-gauge">
               <canvas id="pttGaugeChart" height="150"></canvas>
-              <div class="ptt-gaugemid"><b class="num" id="pttGaugePct">—</b><span>Achievement</span></div>
+              <div class="ptt-gaugemid"><b class="num" id="pttGaugePct">—</b><span>ความสำเร็จ <span class="ensub">(Achievement)</span></span></div>
             </div>
             <div>
-              <div class="lbl">Forecast Achievement</div>
+              <div class="lbl">คาดการณ์เมื่อจบช่วง <span class="ensub">(Forecast Achievement)</span></div>
               <div class="ptt-fc num" id="pttForecastPct" style="color:var(--jade-deep)">—</div>
               <div class="ptt-risk-row">ความเสี่ยง <span id="pttRiskTag">—</span></div>
             </div>
@@ -448,8 +457,14 @@
         <div class="panel" style="margin:0 0 18px" id="pttTablePanel">
           <h3>Sales Performance</h3>
           <div class="ph" id="pttTablePh">เทียบเป้า/ยอดจริง/Achievement/Forecast/ความเสี่ยง รายแอดมิน — คลิกชื่อเพื่อดูรายละเอียด</div>
-          <div style="overflow-x:auto"><table style="min-width:720px"><thead><tr>
-            <th style="text-align:left">Sales</th><th>Target</th><th>Actual</th><th>Achievement</th><th>Forecast</th><th>Risk</th>
+          <div style="overflow-x:auto"><table style="min-width:760px"><thead><tr>
+            <th style="text-align:center">อันดับ<span class="ensub">(#)</span></th>
+            <th style="text-align:left">รายชื่อ<span class="ensub">(Sales)</span></th>
+            <th>เป้าหมาย<span class="ensub">(Target)</span></th>
+            <th>ยอดขายจริง<span class="ensub">(Actual)</span></th>
+            <th>% สำเร็จ<span class="ensub">(Achievement)</span></th>
+            <th>คาดการณ์<span class="ensub">(Forecast)</span></th>
+            <th>ความเสี่ยง<span class="ensub">(Risk)</span></th>
           </tr></thead><tbody id="pttTableBody"></tbody></table></div>
         </div>
         <div class="panel reco" style="margin:0" id="pttRecoPanel">
@@ -794,10 +809,17 @@ function callPageApi(params,onSuccess,onError){
   if(!PAGE_API_URL){ onError({message:'ยังไม่ได้ตั้งค่า PAGE_API_URL ในโค้ด กรุณาติดต่อผู้ดูแลระบบ'}); return; }
   params.token=PAGE_API_TOKEN;
   var qs=Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
-  fetch(PAGE_API_URL+'?'+qs)
+  // กันหน้าค้างโหลดตลอดไปถ้า Worker ตอบช้าผิดปกติ (เช่น cold start/สแกนชีตหนัก) — ยกเลิกคำขอเองหลัง 25 วิ
+  // แล้วแจ้ง error ให้ผู้ใช้เห็นแทนที่จะปล่อยให้ spinner ค้างเงียบๆ ไม่รู้จบ
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ ctrl.abort(); },25000);
+  fetch(PAGE_API_URL+'?'+qs,{signal:ctrl.signal})
     .then(function(r){return r.json();})
-    .then(onSuccess)
-    .catch(function(e){onError({message:e.message||'Network error'});});
+    .then(function(d){ clearTimeout(timer); onSuccess(d); })
+    .catch(function(e){
+      clearTimeout(timer);
+      onError({message:e.name==='AbortError'?'เซิร์ฟเวอร์ตอบช้าเกินไป (เกิน 25 วินาที) กรุณาลองใหม่':(e.message||'Network error')});
+    });
 }
 function loadPageStats(){
   el('customRange2').classList.toggle('hide',el('rangePick2').value!=='custom');
@@ -911,7 +933,7 @@ function loadAdminStats(){
   callPageApi(params,function(d){adminStatsCache[key]=d;if(myReq===adminStatsReqSeq)renderAdminStats(d);},function(err){if(myReq===adminStatsReqSeq){show(false);renderAdminStatsError(err.message);}});
 }
 function renderAdminStatsError(msg){
-  el('pttTableBody').innerHTML='<tr><td colspan="6" style="padding:14px 0;color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
+  el('pttTableBody').innerHTML='<tr><td colspan="7" style="padding:14px 0;color:#B4452F;text-align:left">โหลดข้อมูลไม่สำเร็จ: '+esc(msg)+'</td></tr>';
   el('pttInsight').innerHTML='';
   el('pttRecoText').textContent='';
 }
@@ -943,7 +965,7 @@ function renderAdminStats(d){
   if(!rows.length){
     hideAdminDetail();
     el('peopleLeaderboard').classList.remove('hide');
-    el('pttTableBody').innerHTML='<tr><td colspan="6" style="padding:14px 0;color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
+    el('pttTableBody').innerHTML='<tr><td colspan="7" style="padding:14px 0;color:var(--faint);text-align:left">ไม่มีข้อมูลในช่วงที่เลือก</td></tr>';
     el('pttInsight').innerHTML='';
     el('pttRecoText').textContent='';
     return;
@@ -991,10 +1013,15 @@ function peopleRangeInfo(){
 }
 function riskTag(pct){
   if(pct==null) return '<span class="tag" style="color:var(--faint);background:var(--page)">—</span>';
-  if(pct>=100) return '<span class="tag risklow">Low Risk</span>';
-  if(pct>=85) return '<span class="tag riskmed">Medium Risk</span>';
-  return '<span class="tag riskhigh">High Risk</span>';
+  if(pct>=100) return '<span class="tag risklow">เสี่ยงต่ำ <span class="ensub">(Low)</span></span>';
+  if(pct>=85) return '<span class="tag riskmed">เสี่ยงปานกลาง <span class="ensub">(Medium)</span></span>';
+  return '<span class="tag riskhigh">เสี่ยงสูง <span class="ensub">(High)</span></span>';
 }
+// ป้ายไอคอนบอกว่า "ทะลุเป้าแล้ว" — โชว์เฉพาะแถวที่ทำได้ >=100% ของเป้า ให้เห็นเด่นกว่าตัวเลขเฉยๆ
+function hitTargetBadge(pct){
+  return (pct!=null&&pct>=100)?'<span class="hit-badge" title="ทำได้ถึงเป้าแล้ว">🔥 ทะลุเป้า</span>':'';
+}
+function rankBadgeCls(i){ return i===0?'top1':(i===1?'top2':(i===2?'top3':'')); }
 function renderLeaderboard(rows){
   var pri=peopleRangeInfo();
   var T=STANDARD_KPI_TARGETS;
@@ -1046,14 +1073,16 @@ function renderLeaderboard(rows){
   el('pttInsight').innerHTML=insightLines.map(function(t){ return '<div class="insline">• '+t+'</div>'; }).join('');
 
   // ---- ตาราง Sales Performance ----
-  el('pttTableBody').innerHTML=computed.map(function(c){
+  el('pttTableBody').innerHTML=computed.map(function(c,i){
     var r=c.r,pct=c.achievePct==null?0:Math.max(0,Math.min(100,c.achievePct));
     var barColor=pct>=100?'linear-gradient(90deg,var(--jade),var(--jade-deep))':(pct>=70?'linear-gradient(90deg,#E0A24A,var(--amber))':'linear-gradient(90deg,#E77A5E,#B4452F)');
+    var rankCls=rankBadgeCls(i);
     return '<tr>'
-      +'<td><div class="ptname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div></td>'
+      +'<td style="text-align:center"><span class="ptrank'+(rankCls?' '+rankCls:'')+'">'+(rankCls==='top1'?'🥇':(rankCls==='top2'?'🥈':(rankCls==='top3'?'🥉':(i+1))))+'</span></td>'
+      +'<td style="text-align:left"><div class="ptname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div></td>'
       +'<td class="num">'+baht(c.target)+'</td>'
       +'<td class="num">'+baht(c.actual)+(r.per_admin_real_data?'':' '+dataSrcTag(r.per_admin_real_data))+'</td>'
-      +'<td class="num"><span class="ptbar"><span class="ptfill" style="width:'+pct+'%;background:'+barColor+'"></span></span>'+num1(c.achievePct,'%')+'</td>'
+      +'<td class="num"><span class="ptbar"><span class="ptfill" style="width:'+pct+'%;background:'+barColor+'"></span></span>'+num1(c.achievePct,'%')+hitTargetBadge(c.achievePct)+'</td>'
       +'<td class="num">'+num1(c.forecastPct,'%')+'</td>'
       +'<td>'+riskTag(pri.notStarted?null:c.forecastPct)+'</td>'
       +'</tr>';

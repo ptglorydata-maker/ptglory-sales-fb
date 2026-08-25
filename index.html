@@ -102,6 +102,9 @@
   table{width:100%;border-collapse:collapse;font-size:13px}
   thead th{text-align:right;font-weight:500;color:var(--faint);font-size:11.5px;padding:0 0 10px;border-bottom:1px solid var(--line)}
   thead th:first-child{text-align:left}
+  thead th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+  thead th.sortable:hover{color:var(--ink-2)}
+  .sortArrow{display:inline-block;width:10px;font-size:10px;margin-left:2px}
   tbody td{padding:9px 0;border-bottom:1px solid var(--line);text-align:right;color:var(--ink-2)}
   tbody td:first-child{text-align:left;font-weight:500}tbody tr:last-child td{border-bottom:none}
   .grid td .tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
@@ -459,14 +462,18 @@
         </div>
         <div class="panel" style="margin:0 0 18px" id="pttTablePanel">
           <h3>Sales Performance</h3>
-          <div class="ph" id="pttTablePh">เทียบเป้า/ยอดจริง/Achievement/Forecast/ความเสี่ยง รายแอดมิน — คลิกชื่อเพื่อดูรายละเอียด</div>
-          <div style="overflow-x:auto"><table style="min-width:760px"><thead><tr>
+          <div class="ph" id="pttTablePh">เทียบเป้า/ยอดจริง/KPI/Achievement/Forecast/ความเสี่ยง รายแอดมิน — คลิกชื่อเพื่อดูรายละเอียด, คลิกหัวตารางเพื่อเรียงมาก↔น้อย</div>
+          <div style="overflow-x:auto"><table style="min-width:1180px"><thead><tr id="pttTableHead">
             <th style="text-align:center">อันดับ<span class="ensub">(#)</span></th>
-            <th style="text-align:left">รายชื่อ<span class="ensub">(Sales)</span></th>
-            <th>เป้าหมาย<span class="ensub">(Target)</span></th>
-            <th>ยอดขายจริง<span class="ensub">(Actual)</span></th>
-            <th>% สำเร็จ<span class="ensub">(Achievement)</span></th>
-            <th>คาดการณ์<span class="ensub">(Forecast)</span></th>
+            <th class="sortable" style="text-align:left" data-key="name">รายชื่อ<span class="ensub">(Sales)</span><span class="sortArrow" id="arrow-name"></span></th>
+            <th class="sortable" data-key="target">เป้าหมาย<span class="ensub">(Target)</span><span class="sortArrow" id="arrow-target"></span></th>
+            <th class="sortable" data-key="actual">ยอดขายจริง<span class="ensub">(Actual)</span><span class="sortArrow" id="arrow-actual"></span></th>
+            <th class="sortable" data-key="close">% ปิดการขาย<span class="sortArrow" id="arrow-close"></span></th>
+            <th class="sortable" data-key="aov">เปอร์บิล<span class="sortArrow" id="arrow-aov"></span></th>
+            <th class="sortable" data-key="bounce">% ตีกลับ<span class="sortArrow" id="arrow-bounce"></span></th>
+            <th class="sortable" data-key="error">% Error<span class="sortArrow" id="arrow-error"></span></th>
+            <th class="sortable" data-key="achieve">% สำเร็จ<span class="ensub">(Achievement)</span><span class="sortArrow" id="arrow-achieve"></span></th>
+            <th class="sortable" data-key="forecast">คาดการณ์<span class="ensub">(Forecast)</span><span class="sortArrow" id="arrow-forecast"></span></th>
             <th>ความเสี่ยง<span class="ensub">(Risk)</span></th>
           </tr></thead><tbody id="pttTableBody"></tbody></table></div>
         </div>
@@ -477,6 +484,9 @@
       </div>
 
       <!-- รายละเอียดรายคน (แสดงตอนเลือกแอดมินจาก dropdown) -->
+      <div class="hide" id="peopleAdminBackWrap" style="margin-bottom:12px">
+        <button class="btn" id="peopleAdminBackBtn" onclick="backToLeaderboard()" style="background-color:white;color:#333333">← กลับไปหน้ารวมทุกคน</button>
+      </div>
       <div class="grid row-hero hide" id="peopleAdminHero" style="margin-bottom:15px">
         <div class="card hero">
           <div class="lbl">ยอดขายรวมเดือน <span style="opacity:.7;font-size:11px">(จากไฟล์ KPI)</span></div><div class="big num" id="paSales">—</div>
@@ -957,6 +967,13 @@ function selectAdmin(name){
   el('adminPick').value=name;
   loadAdminStats();
 }
+// ปุ่ม "← กลับไปหน้ารวมทุกคน" ในหน้ารายละเอียดรายคน — เทียบเท่าเลือก "ทั้งหมด" ใน dropdown เลือกแอดมิน
+// แต่ไม่ต้องเลื่อนไปกดที่ sidebar เอง
+function backToLeaderboard(){
+  curAdminFilter='';
+  el('adminPick').value='';
+  loadAdminStats();
+}
 function renderAdminStats(d){
   show(false);
   if(d.error){ renderAdminStatsError(d.error); return; }
@@ -983,7 +1000,7 @@ function renderAdminStats(d){
   }
 }
 function hideAdminDetail(){
-  ['peopleAdminHero','peopleAdminKpis1','peopleAdminKpiTargets','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.add('hide'); });
+  ['peopleAdminBackWrap','peopleAdminHero','peopleAdminKpis1','peopleAdminKpiTargets','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.add('hide'); });
 }
 function avatarInitial(name){ return esc((String(name||'').trim().charAt(0))||'?'); }
 // ป้าย "≈ ประมาณ" — โชว์เฉพาะแถวที่ backend หาข้อมูลจริงรายคนจากไฟล์ Data กลางทีม DA ไม่เจอ (per_admin_real_data=false)
@@ -1025,6 +1042,59 @@ function hitTargetBadge(pct){
   return (pct!=null&&pct>=100)?'<span class="hit-badge" title="ทำได้ถึงเป้าแล้ว">🔥 ทะลุเป้า</span>':'';
 }
 function rankBadgeCls(i){ return i===0?'top1':(i===1?'top2':(i===2?'top3':'')); }
+// ---- เรียงตาราง Sales Performance ตามหัวข้อ (คลิกหัวตาราง) ----
+var pttComputed=null, pttSortKey='actual', pttSortDir=-1, pttNotStarted=false;
+function pttSortValue(c,key){
+  switch(key){
+    case 'name': return (c.r.admin||'').toLowerCase();
+    case 'target': return c.target;
+    case 'actual': return c.actual;
+    case 'close': return c.r.close_rate_new==null?null:c.r.close_rate_new;
+    case 'aov': return c.r.aov_total==null?null:c.r.aov_total;
+    case 'bounce': return (c.r.kpi_status&&c.r.kpi_status.bounce_rate!=null)?c.r.kpi_status.bounce_rate:null;
+    case 'error': return c.r.error_pct==null?null:c.r.error_pct;
+    case 'achieve': return c.achievePct;
+    case 'forecast': return c.forecastPct;
+    default: return c.actual;
+  }
+}
+function onPttSortClick(key){
+  if(pttSortKey===key){ pttSortDir=-pttSortDir; } else { pttSortKey=key; pttSortDir=-1; }
+  renderLeaderboardTable();
+}
+function renderLeaderboardTable(){
+  if(!pttComputed) return;
+  var key=pttSortKey,dir=pttSortDir;
+  var sorted=pttComputed.slice().sort(function(a,b){
+    var av=pttSortValue(a,key),bv=pttSortValue(b,key);
+    if(typeof av==='string'||typeof bv==='string') return dir*String(av||'').localeCompare(String(bv||''),'th');
+    if(av==null&&bv==null) return 0;
+    if(av==null) return 1; if(bv==null) return -1;
+    return dir*(av-bv);
+  });
+  ['name','target','actual','close','aov','bounce','error','achieve','forecast'].forEach(function(k){
+    el('arrow-'+k).textContent=(k===key)?(dir===1?'▲':'▼'):'';
+  });
+  el('pttTableBody').innerHTML=sorted.map(function(c,i){
+    var r=c.r,pct=c.achievePct==null?0:Math.max(0,Math.min(100,c.achievePct));
+    var barColor=pct>=100?'linear-gradient(90deg,var(--jade),var(--jade-deep))':(pct>=70?'linear-gradient(90deg,#E0A24A,var(--amber))':'linear-gradient(90deg,#E77A5E,#B4452F)');
+    var rankCls=(key==='actual'&&dir===-1)?rankBadgeCls(i):'';
+    var bounce=(r.kpi_status&&r.kpi_status.bounce_rate!=null)?r.kpi_status.bounce_rate:null;
+    return '<tr>'
+      +'<td style="text-align:center"><span class="ptrank'+(rankCls?' '+rankCls:'')+'">'+(rankCls==='top1'?'🥇':(rankCls==='top2'?'🥈':(rankCls==='top3'?'🥉':(i+1))))+'</span></td>'
+      +'<td style="text-align:left"><div class="ptname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div></td>'
+      +'<td class="num">'+baht(c.target)+'</td>'
+      +'<td class="num">'+baht(c.actual)+(r.per_admin_real_data?'':' '+dataSrcTag(r.per_admin_real_data))+'</td>'
+      +'<td class="num">'+cspan(num1(r.close_rate_new,'%'),'close',r.close_rate_new)+'</td>'
+      +'<td class="num">'+baht(r.aov_total)+'</td>'
+      +'<td class="num">'+(bounce!=null?num1(bounce,'%'):'—')+'</td>'
+      +'<td class="num">'+(r.error_pct!=null?num1(r.error_pct,'%'):'—')+'</td>'
+      +'<td class="num"><span class="ptbar"><span class="ptfill" style="width:'+pct+'%;background:'+barColor+'"></span></span>'+num1(c.achievePct,'%')+hitTargetBadge(c.achievePct)+'</td>'
+      +'<td class="num">'+num1(c.forecastPct,'%')+'</td>'
+      +'<td>'+riskTag(pttNotStarted?null:c.forecastPct)+'</td>'
+      +'</tr>';
+  }).join('');
+}
 function renderLeaderboard(rows){
   var pri=peopleRangeInfo();
   var T=STANDARD_KPI_TARGETS;
@@ -1039,6 +1109,7 @@ function renderLeaderboard(rows){
     var forecastPct=target?forecast/target*100:null;
     return {r:r,target:target,actual:actual,forecast:forecast,achievePct:achievePct,forecastPct:forecastPct};
   }).sort(function(a,b){ return b.actual-a.actual; });
+  pttComputed=computed; pttSortKey='actual'; pttSortDir=-1; pttNotStarted=pri.notStarted;
 
   var targetSum=computed.reduce(function(s,c){return s+c.target;},0);
   var actualSum=computed.reduce(function(s,c){return s+c.actual;},0);
@@ -1076,20 +1147,7 @@ function renderLeaderboard(rows){
   el('pttInsight').innerHTML=insightLines.map(function(t){ return '<div class="insline">• '+t+'</div>'; }).join('');
 
   // ---- ตาราง Sales Performance ----
-  el('pttTableBody').innerHTML=computed.map(function(c,i){
-    var r=c.r,pct=c.achievePct==null?0:Math.max(0,Math.min(100,c.achievePct));
-    var barColor=pct>=100?'linear-gradient(90deg,var(--jade),var(--jade-deep))':(pct>=70?'linear-gradient(90deg,#E0A24A,var(--amber))':'linear-gradient(90deg,#E77A5E,#B4452F)');
-    var rankCls=rankBadgeCls(i);
-    return '<tr>'
-      +'<td style="text-align:center"><span class="ptrank'+(rankCls?' '+rankCls:'')+'">'+(rankCls==='top1'?'🥇':(rankCls==='top2'?'🥈':(rankCls==='top3'?'🥉':(i+1))))+'</span></td>'
-      +'<td style="text-align:left"><div class="ptname" '+adminClickAttr(r.admin)+'><div class="avatar">'+avatarInitial(r.admin)+'</div><div><b>'+esc(r.admin)+'</b><span>'+esc((r.units||[]).join(', ')||'—')+' · '+int0(r.pageCount)+' เพจ</span></div></div></td>'
-      +'<td class="num">'+baht(c.target)+'</td>'
-      +'<td class="num">'+baht(c.actual)+(r.per_admin_real_data?'':' '+dataSrcTag(r.per_admin_real_data))+'</td>'
-      +'<td class="num"><span class="ptbar"><span class="ptfill" style="width:'+pct+'%;background:'+barColor+'"></span></span>'+num1(c.achievePct,'%')+hitTargetBadge(c.achievePct)+'</td>'
-      +'<td class="num">'+num1(c.forecastPct,'%')+'</td>'
-      +'<td>'+riskTag(pri.notStarted?null:c.forecastPct)+'</td>'
-      +'</tr>';
-  }).join('');
+  renderLeaderboardTable();
 
   // ---- AI Recommendation ----
   if(pri.notStarted){
@@ -1182,7 +1240,7 @@ function renderKpiTargets(kpi,r){
 function renderAdminDetail(rows,daily,kpi){
   var r=rows.filter(function(x){ return x.admin===curAdminFilter; })[0];
   if(!r){ hideAdminDetail(); return; }
-  ['peopleAdminHero','peopleAdminKpis1','peopleAdminKpiTargets','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.remove('hide'); });
+  ['peopleAdminBackWrap','peopleAdminHero','peopleAdminKpis1','peopleAdminKpiTargets','peopleAdminCharts','peopleAdminPages'].forEach(function(id){ el(id).classList.remove('hide'); });
   // การ์ดยอดขายรวมเดือน + เปอร์บิล — ดึงจากไฟล์ KPI ตรงๆ (ไม่ใช่ผลรวม Staging) ตามที่ขอ ส่วนยอดรายวัน/
   // กราฟแนวโน้ม/สัดส่วนใหม่-เก่า ยังคงมาจาก Staging - รายเพจ เหมือนเดิม (คนละก้อนข้อมูล คนละวัตถุประสงค์)
   var kpiMonth=(kpi&&kpi.found&&kpi.months&&kpi.months.length)?kpi.months[kpi.months.length-1]:null;
@@ -1697,6 +1755,10 @@ el('rangePick2').addEventListener('change',loadPageStats);
 el('rangeStart2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
 el('rangeEnd2').addEventListener('change',function(){if(el('rangePick2').value==='custom')loadPageStats();});
 el('rangePickPeople').addEventListener('change',loadAdminStats);
+el('pttTableHead').addEventListener('click',function(e){
+  var th=e.target.closest('th.sortable'); if(!th) return;
+  onPttSortClick(th.getAttribute('data-key'));
+});
 el('refreshBtn').addEventListener('click',function(){
   if(view==='daily')loadDaily(el('datePick').value,true);
   else if(view==='range')loadRange();

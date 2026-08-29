@@ -894,8 +894,12 @@ async function getAdminStats_(env, start, end, unitFilter, adminFilter) {
 // เพื่ออุ่นทั้ง raw-row cache ชั้นล่างและ resp:v1 cache ชั้นบนของ view เริ่มต้นไว้ล่วงหน้าเสมอ ผู้ใช้จริง
 // แทบไม่มีโอกาสเจอ cache miss เต็มรูปแบบอีกเลย
 async function warmDefaultCaches_(env) {
-  var now = new Date();
-  var start = fmtYMD_(new Date(now.getFullYear(), now.getMonth(), 1));
+  // ใช้เวลาไทย (Bangkok, UTC+7) ไม่ใช่เวลาของ Worker (UTC) ตอนคำนวณ "วันนี้" — ฝั่งหน้าเว็บคำนวณ
+  // "วันนี้" จากเวลาเครื่องผู้ใช้ (ไทย) เสมอ ถ้า cron ใช้ UTC ตรงๆ ช่วงเวลาไทย 00:00-06:59 น. (คือ
+  // 17:00-23:59 UTC ของเมื่อวาน) วันที่ "วันนี้" ของสองฝั่งจะเพี้ยนกันไป 1 วัน ทำให้ resp:v1:admin_stats
+  // cache key ที่ cron อุ่นไว้ไม่ตรงกับที่หน้าเว็บขอเลยสักครั้งในช่วงนั้น กลายเป็น cache miss เต็มรูปแบบ
+  var now = todayBangkok_();
+  var start = fmtYMD_(new Date(now.getUTCFullYear(), now.getUTCMonth(), 1));
   var end = fmtYMD_(now);
   await Promise.all([
     getAdminStats_(env, start, end, '', '')
@@ -948,30 +952,68 @@ export default {
         }
       }
 
-      if (p.mode === 'units') {
-        out = await getPageUnits_(env);
-      } else if (p.mode === 'admin_units') {
-        out = await getAdminUnits_(env);
-      } else if (p.mode === 'admin_stats') {
-        if (!p.start || !p.end) throw new Error('missing start/end');
-        out = await getAdminStats_(env, p.start, p.end, p.unit || '', p.admin || '');
-      } else if (p.mode === 'da_debug') {
-        if (!p.admin || !p.month) throw new Error('missing admin/month (เช่น admin=ใบพลู (ปิยกรณ์)&month=2026-08)');
-        out = await getDaDebugRows_(env, p.admin, p.month);
+      function computeLive_() {
+        if (p.mode === 'units') return getPageUnits_(env);
+        if (p.mode === 'admin_units') return getAdminUnits_(env);
+        if (p.mode === 'admin_stats') {
+          if (!p.start || !p.end) return Promise.reject(new Error('missing start/end'));
+          return getAdminStats_(env, p.start, p.end, p.unit || '', p.admin || '');
+        }
+        if (p.mode === 'da_debug') {
+          if (!p.admin || !p.month) return Promise.reject(new Error('missing admin/month (เช่น admin=ใบพลู (ปิยกรณ์)&month=2026-08)'));
+          return getDaDebugRows_(env, p.admin, p.month);
+        }
+        if (!p.start || !p.end) return Promise.reject(new Error('missing start/end'));
+        return getPageStats_(env, p.start, p.end, p.unit || '');
+      }
+
+      // stale-while-revalidate: cache miss ปกติ (TTL_RESULT หมดอายุ/พารามิเตอร์ที่ cron ไม่ได้อุ่นไว้)
+      // ต้องรอคำนวณสดหลายชีตพร้อมกัน ซึ่งบางครั้งช้าเกิน timeout 25 วิฝั่งหน้าเว็บ (ดูคอมเมนต์บน
+      // warmDefaultCaches_) — เก็บสำเนาผลลัพธ์ล่าสุดไว้อีกชุดที่ TTL ยาวกว่ามาก (staleKey) เป็น fallback:
+      // ถ้าคำนวณสดยังไม่เสร็จภายใน 12 วิ แต่มีสำเนาเก่า (ต่อให้ resp:v1 หลักหมดอายุไปแล้ว) ให้ตอบสำเนาเก่า
+      // กลับไปก่อนทันที (ผู้ใช้เห็นข้อมูลช้ากว่าจริงนิดหน่อยแทนที่จะเจอ error เต็มๆ) แล้วปล่อยให้คำนวณสดวิ่ง
+      // ต่อเบื้องหลังด้วย ctx.waitUntil เพื่ออัปเดตทั้งสอง key ให้ทันสมัยไว้ใช้ครั้งถัดไป
+      var staleKey = cacheKey ? cacheKey.replace('resp:v1:', 'resp:stale:v1:') : null;
+      var livePromise = computeLive_();
+      var storeOnSuccess = livePromise.then(function (liveOut) {
+        if (cacheKey && !(liveOut && liveOut.error)) {
+          return Promise.all([
+            kvPutJson_(env, cacheKey, liveOut, cacheTtl),
+            kvPutJson_(env, staleKey, liveOut, cacheTtl * 6)
+          ]).then(function () { return liveOut; });
+        }
+        return liveOut;
+      });
+      ctx.waitUntil(storeOnSuccess.catch(function () { /* เก็บ cache ไม่สำเร็จก็แค่ครั้งหน้าคำนวณสดใหม่ */ }));
+
+      if (staleKey) {
+        var raced = await Promise.race([
+          storeOnSuccess.then(function (v) { return { done: true, out: v }; }),
+          new Promise(function (resolve) { setTimeout(function () { resolve({ done: false }); }, 12000); })
+        ]);
+        if (raced.done) {
+          out = raced.out;
+        } else {
+          var staleRaw = await env.GLORY_KV.get(staleKey);
+          if (staleRaw) {
+            var staleResp = new Response(staleRaw, { headers });
+            staleResp.headers.set('X-Cache', 'STALE');
+            return staleResp;
+          }
+          out = await storeOnSuccess; // ไม่มีสำเนาเก่าให้ใช้เลย รอคำนวณสดจนเสร็จ (เหมือนพฤติกรรมเดิม)
+        }
       } else {
-        if (!p.start || !p.end) throw new Error('missing start/end');
-        out = await getPageStats_(env, p.start, p.end, p.unit || '');
+        out = await livePromise;
       }
     } catch (err) {
       out = { error: (err && err.message) || String(err) };
     }
 
+    // การเขียน cache (ทั้ง resp:v1 หลักและ resp:stale:v1 สำรอง) ทำไปแล้วใน storeOnSuccess ข้างบนตอน
+    // คำนวณสดสำเร็จ (ครอบคลุมทั้งกรณี race ทันและกรณีรอจนเสร็จ) ไม่ต้องเขียนซ้ำตรงนี้อีก
     var json = JSON.stringify(out);
     var respOut = new Response(json, { headers });
     respOut.headers.set('X-Cache', 'MISS');
-    if (cacheKey && !(out && out.error)) {
-      ctx.waitUntil(kvPutJson_(env, cacheKey, out, cacheTtl));
-    }
     return respOut;
   }
 };

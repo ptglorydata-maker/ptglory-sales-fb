@@ -1,0 +1,43 @@
+name: Deploy GitHub Pages
+
+# publish index.html (the dashboard) to
+# https://ptglorydata-maker.github.io/ptglory-sales-fb/
+# ก่อนหน้านี้ repo ไม่มี workflow นี้เลยแม้ index.html/etl/README.md จะอ้างอิง URL นี้อยู่ —
+# ทำให้เปิดแล้วเจอ 404 "There isn't a GitHub Pages site here" เพราะไม่เคย publish จริง
+on:
+  push:
+    branches: [main]
+    paths: [index.html]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare site
+        run: |
+          mkdir -p site
+          cp index.html site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
